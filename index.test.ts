@@ -171,7 +171,23 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
 "3,4",70,test_name`
 
     const metrics = await parser.parse(testCSV);
+    expect(metrics[0]?.recordFields["first"]).to.be.eql("3,4");
+  })
+
+  it("Tests delimeters", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 1, 
+      delimiter: "%", 
+      columnNames: ["first", "second", "third"], 
+      measurementColumn: "third"
+    })
+
+    const testCSV = `line1%line2%line3
+3,4%70%test_name`
+
+    const metrics = await parser.parse(testCSV);
     console.log('metrics', metrics)
     expect(metrics[0]?.recordFields["first"]).to.be.eql("3,4");
+
   })
 });
