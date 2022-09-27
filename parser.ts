@@ -176,7 +176,7 @@ export class CSVParser {
       config?.timezone ?? "",
       config?.trimSpace ?? true,
       config?.skipValues ?? [],
-      config?.skipErrors ?? true,
+      config?.skipErrors ?? false,
       config?.metadataRows ?? 0,
       config?.metadataSeparators ?? [],
       config?.metadataTrimSet ?? "",
@@ -432,9 +432,11 @@ export class CSVParser {
         const fValue = parseFloat(value);
         const bValue = parseBool(value);
         
-        if (!isNaN(iValue) && Number.isInteger(+value)) { // checks if value is an integer (not float)
+        // Number.isInteger(+value) checks if value is an integer (not float)
+        // value.indexOf(',') == -1 checks if value is a real number (not 3,4)
+        if (!isNaN(iValue) && Number.isInteger(+value) && value.indexOf(',') === -1) {
           recordFields[fieldName] = iValue;
-        } else if (!isNaN(fValue)) {
+        } else if (!isNaN(fValue) && value.indexOf(',') === -1) {
           recordFields[fieldName] = fValue;
         } else if (bValue !== undefined) {
           recordFields[fieldName] = bValue;
