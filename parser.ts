@@ -34,7 +34,7 @@ interface ParserConfig {
 
 type TimeFunc = () => Date;
 
-export class CSVParser implements ParserConfig {
+export class Config {
   columnNames: string[];
   columnTypes: string[];
   comment: string;
@@ -57,6 +57,55 @@ export class CSVParser implements ParserConfig {
   metadataTrimSet: string;
   resetMode: string;
 
+  constructor (
+    columnNames: string[],
+    columnTypes: string[],
+    comment: string,
+    defaultTags: Record<string, string>,
+    delimiter: string,
+    headerRowCount: number,
+    measurementColumn: string,
+    metricName: string,
+    skipColumns: number,
+    skipRows: number,
+    tagColumns: string[],
+    timestampColumn: string,
+    timestampFormat: string,
+    timezone: string,
+    trimSpace: boolean,
+    skipValues: string[],
+    skipErrors: boolean,
+    metadataRows: number,
+    metadataSeparators: string[],
+    metadataTrimSet: string,
+    resetMode: string,
+  ) {
+    this.columnNames = columnNames;
+    this.columnTypes = columnTypes;
+    this.comment = comment;
+    this.defaultTags = defaultTags;
+    this.delimiter = delimiter;
+    this.headerRowCount = headerRowCount;
+    this.measurementColumn = measurementColumn;
+    this.metricName = metricName;
+    this.skipColumns = skipColumns;
+    this.skipRows = skipRows;
+    this.tagColumns = tagColumns;
+    this.timestampColumn = timestampColumn;
+    this.timestampFormat = timestampFormat;
+    this.timezone = timezone;
+    this.trimSpace = trimSpace;
+    this.skipValues = skipValues;
+    this.skipErrors = skipErrors;
+    this.metadataRows = metadataRows;
+    this.metadataSeparators = metadataSeparators;
+    this.metadataTrimSet = metadataTrimSet;
+    this.resetMode = resetMode;
+  }
+}
+
+export class CSVParser {
+
   private timeFunc: TimeFunc = () => new Date();
   private gotColumnNames = false;
   private gotInitialColumnNames = false;
@@ -65,74 +114,76 @@ export class CSVParser implements ParserConfig {
   private remainingMetadataRows = 0;
   private metadataTags: Record<string, string> = {};
   private metadataSeparatorList: string[] = [];
+  config: Config;
 
   // InitFromConfig
   // Partial type sets all properties to optional
   constructor(config?: Partial<ParserConfig>) {
-    config = config ?? {};
-    this.columnNames = config.columnNames ?? [];
-    this.columnTypes = config.columnTypes ?? [];
-    this.comment = config.comment ?? "";
-    this.defaultTags = config.defaultTags ?? {};
-    this.delimiter = config.delimiter ?? "";
-    this.headerRowCount = config.headerRowCount ?? 0;
-    this.measurementColumn = config.measurementColumn ?? "";
-    this.metricName = config.metricName ?? ""; // part of parser type in go parser
-    this.skipColumns = config.skipColumns ?? 0;
-    this.skipRows = config.skipRows ?? 0;
-    this.tagColumns = config.tagColumns ?? [];
-    this.timestampColumn = config.timestampColumn ?? "";
-    this.timestampFormat = config.timestampFormat ?? "";
-    this.timezone = config.timestampFormat ?? "";
-    this.trimSpace = config.trimSpace ?? true;
-    this.skipValues = config.skipValues ?? []; // part of parser type in go parser
-    this.skipErrors = config.skipErrors ?? true; // part of parser type in go parser
-    this.metadataRows = config.metadataRows ?? 0;
-    this.metadataSeparators = config.metadataSeparators ?? [];
-    this.metadataTrimSet = config.metadataTrimSet ?? "";
-    this.resetMode = config.resetMode ?? "none";
+    this.config = new Config(
+      config?.columnNames ?? [],
+      config?.columnTypes ?? [], 
+      config?.comment ?? "", 
+      config?.defaultTags ?? {}, 
+      config?.delimiter ?? "",
+      config?.headerRowCount ?? 0,
+      config?.measurementColumn ?? "",
+      config?.metricName ?? "",
+      config?.skipColumns ?? 0,
+      config?.skipRows ?? 0,
+      config?.tagColumns ?? [],
+      config?.timestampColumn ?? "",
+      config?.timestampFormat ?? "",
+      config?.timezone ?? "",
+      config?.trimSpace ?? true,
+      config?.skipValues ?? [],
+      config?.skipErrors ?? true,
+      config?.metadataRows ?? 0,
+      config?.metadataSeparators ?? [],
+      config?.metadataTrimSet ?? "",
+      config?.resetMode ?? "none"
+    )
 
     this.init();
   }
 
   init() {
-    if (!this.headerRowCount && !this.columnNames.length) {
+    if (!this.config.headerRowCount && !this.config.columnNames.length) {
       throw new Error(
-        "`csv_header_row_count` must be defined if `csv_column_names` is not specified"
+        "`headerRowCount` cannot be 0 if `columnNames` is not specified"
       );
     }
 
-    if (this.delimiter.length > 1) {
+    if (this.config.delimiter.length > 1) {
       throw new Error(
-        `csv_delimiter must be a single character, got: ${this.delimiter}`
+        `delimiter must be a single character, got: ${this.config.delimiter}`
       );
     }
 
-    if (this.comment.length > 1) {
+    if (this.config.comment.length > 1) {
       throw new Error(
-        `csv_comment must be a single character, got: ${this.comment}`
+        `comment must be a single character, got: ${this.config.comment}`
       );
     }
 
-    this.gotInitialColumnNames = !!this.columnNames.length;
+    this.gotInitialColumnNames = !!this.config.columnNames.length;
     if (
-      this.columnNames.length &&
-      this.columnTypes.length &&
-      this.columnNames.length === this.columnTypes.length
+      this.config.columnNames.length &&
+      this.config.columnTypes.length &&
+      this.config.columnNames.length === this.config.columnTypes.length
     ) {
       throw new Error(
-        "csv_column_names field count doesn't match with csv_column_types"
+        "columnNames field count doesn't match with columnTypes"
       );
     }
 
     this.initializeMetadataSeparator();
 
-    if (!this.resetMode) {
-      this.resetMode = "none";
+    if (!this.config.resetMode) {
+      this.config.resetMode = "none";
     }
 
-    if (!["none", "always"].includes(this.resetMode)) {
-      throw new Error(`unknown reset mode ${this.resetMode}`);
+    if (!["none", "always"].includes(this.config.resetMode)) {
+      throw new Error(`expected "none" or "always" but got unknown reset mode ${this.config.resetMode}`);
     }
 
     this.reset();
@@ -140,7 +191,7 @@ export class CSVParser implements ParserConfig {
 
   async parse(file: LocalFile) {
     // Reset the parser according to the specified mode
-    if (this.resetMode == "always") {
+    if (this.config.resetMode === "always") {
       this.reset();
     }
 
@@ -173,17 +224,17 @@ export class CSVParser implements ParserConfig {
     // Reset the columns if they were not user-specified
     this.gotColumnNames = this.gotInitialColumnNames;
     if (!this.gotInitialColumnNames) {
-      this.columnNames = [];
+      this.config.columnNames = [];
     }
 
     // Reset the internal counters
-    this.remainingHeaderRows = this.headerRowCount;
-    this.remainingMetadataRows = this.metadataRows;
-    this.remainingSkipRows = this.skipRows;
+    this.remainingHeaderRows = this.config.headerRowCount;
+    this.remainingMetadataRows = this.config.metadataRows;
+    this.remainingSkipRows = this.config.skipRows;
   }
 
   setDefaultTags(tags: Record<string, string>) {
-    this.defaultTags = tags;
+    this.config.defaultTags = tags;
   }
 
   setTimeFunc(fn: TimeFunc) {
@@ -193,23 +244,23 @@ export class CSVParser implements ParserConfig {
   private compile(file: LocalFile) {
     return new CSVReader({
       file,
-      delimiter: this.delimiter,
-      comment: this.comment,
-      trimSpace: this.trimSpace,
+      delimiter: this.config.delimiter,
+      comment: this.config.comment,
+      trimSpace: this.config.trimSpace,
     });
   }
 
   private initializeMetadataSeparator() {
-    if (this.metadataRows <= 0) return;
+    if (this.config.metadataRows <= 0) return;
 
-    if (!this.metadataSeparators.length) {
+    if (!this.config.metadataSeparators.length) {
       throw new Error(
-        "csv_metadata_separators required when specifying csv_metadata_rows"
+        "metadataSeparators required when specifying metadataRows"
       );
     }
 
     const patternList: Record<string, boolean> = {};
-    for (const pattern of this.metadataSeparators) {
+    for (const pattern of this.config.metadataSeparators) {
       if (patternList[pattern]) {
         // Ignore further, duplicated entries
         continue;
@@ -222,7 +273,7 @@ export class CSVParser implements ParserConfig {
   }
 
   private async parseCSV(file: LocalFile) {
-    file = typeof file != "string" ? await file.text() : file;
+    file = typeof file === "string" ? file: await file.text();
 
     // Skip first rows
     while (this.remainingSkipRows > 0) {
@@ -258,18 +309,18 @@ export class CSVParser implements ParserConfig {
 
       // Concatenate header names
       for (let [i, header] of headers.entries()) {
-        const name = this.trimSpace ? this.trim(header, " ") : header;
-        if (this.columnNames.length <= i) {
-          this.columnNames.push(name);
+        const name = this.config.trimSpace ? this.trim(header, " ") : header;
+        if (this.config.columnNames.length <= i) {
+          this.config.columnNames.push(name);
         } else {
-          this.columnNames[i] = this.columnNames[i] + name;
+          this.config.columnNames[i] = this.config.columnNames[i] + name;
         }
       }
     }
 
     if (!this.gotColumnNames) {
       // Skip first rows
-      this.columnNames = this.columnNames.slice(this.skipColumns);
+      this.config.columnNames = this.config.columnNames.slice(this.config.skipColumns);
       this.gotColumnNames = true;
     }
 
@@ -280,7 +331,7 @@ export class CSVParser implements ParserConfig {
         const metric = this.parseRecord(record);
         metrics.push(metric);
       } catch (err) {
-        if (this.skipErrors) {
+        if (this.config.skipErrors) {
           console.error(err);
           continue;
         }
@@ -297,9 +348,9 @@ export class CSVParser implements ParserConfig {
       if (metadata.length < 2) {
         continue;
       }
-      const key = this.trim(metadata[0]!, this.metadataTrimSet);
+      const key = this.trim(metadata[0]!, this.config.metadataTrimSet);
       if (key) {
-        const value = this.trim(metadata[1]!, this.metadataTrimSet);
+        const value = this.trim(metadata[1]!, this.config.metadataTrimSet);
         return { [key]: value };
       }
     }
@@ -311,19 +362,19 @@ export class CSVParser implements ParserConfig {
     const tags: Record<string, string> = {};
 
     // Skip columns in record
-    record = record.slice(this.skipColumns);
-    outer: for (const [i, fieldName] of this.columnNames.entries()) {
+    record = record.slice(this.config.skipColumns);
+    outer: for (const [i, fieldName] of this.config.columnNames.entries()) {
       if (i < record.length) {
-        const value = this.trimSpace ? this.trim(record[i]!, " ") : record[i]!;
+        const value = this.config.trimSpace ? this.trim(record[i]!, " ") : record[i]!;
 
         // Don't record fields where the value matches a skip value
-        for (const skipValue of this.skipValues) {
+        for (const skipValue of this.config.skipValues) {
           if (value === skipValue) {
             continue outer;
           }
         }
 
-        for (const tagName of this.tagColumns) {
+        for (const tagName of this.config.tagColumns) {
           if (tagName === fieldName) {
             tags[tagName] = value;
             continue outer;
@@ -331,20 +382,20 @@ export class CSVParser implements ParserConfig {
         }
 
         // If the field name is the timestamp column, then keep field name as is.
-        if (fieldName == this.timestampColumn) {
+        if (fieldName == this.config.timestampColumn) {
           recordFields[fieldName] = value;
           continue;
         }
 
         // Try explicit conversion only when column types is defined.
-        if (this.columnTypes.length > 0) {
+        if (this.config.columnTypes.length > 0) {
           // Throw error if current column count exceeds defined types.
-          if (i >= this.columnTypes.length) {
+          if (i >= this.config.columnTypes.length) {
             throw new Error("Column type: Column count exceeded");
           }
 
           let val: any;
-          switch (this.columnTypes[i]) {
+          switch (this.config.columnTypes[i]) {
             case "int":
               val = parseInt(val, 10);
               if (isNaN(val)) {
@@ -393,18 +444,18 @@ export class CSVParser implements ParserConfig {
     }
 
     // Add default tags
-    for (const k in this.defaultTags) {
-      tags[k] = this.defaultTags[k]!;
+    for (const k in this.config.defaultTags) {
+      tags[k] = this.config.defaultTags[k]!;
     }
 
     // Will default to plugin name
-    const measurementValue = recordFields[this.measurementColumn];
+    const measurementValue = recordFields[this.config.measurementColumn];
     const doesExist =
-      this.measurementColumn &&
+      this.config.measurementColumn &&
       measurementValue != undefined &&
       measurementValue != "";
     const measurementName = !doesExist
-      ? this.metricName
+      ? this.config.metricName
       : `${measurementValue}`;
 
     return {
@@ -414,13 +465,14 @@ export class CSVParser implements ParserConfig {
       time: parseTimestamp({
         timeFunc: this.timeFunc,
         recordFields,
-        timestampColumn: this.timestampColumn,
-        timestampFormat: this.timestampFormat,
-        timezone: this.timezone,
+        timestampColumn: this.config.timestampColumn,
+        timestampFormat: this.config.timestampFormat,
+        timezone: this.config.timezone,
       }),
     };
   }
 
+  // naming of method can be improved 
   private readLine(text: string): { text: string; line: string } {
     const lines = text.split("\n");
     if (!lines.length) {
