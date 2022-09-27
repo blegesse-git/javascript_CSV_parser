@@ -257,4 +257,43 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     const metrics = await parser.parse(testCSV);
     expect(metrics[0]?.recordFields).to.be.eql(expectedRecordFields);
   })
+
+  it("trims space", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 0, 
+      trimSpace: true,
+      columnNames: ["first", "second", "third", "fourth"],
+      metricName: "test_value",
+    })
+
+    const testCSV = ` 3.3, 4,    true,hello`;
+
+    const expectedRecordFields = {
+      "first": 3.3, 
+      "second": 4,
+      "third": true,
+      "fourth": "hello"
+    };
+
+    const metrics = await parser.parse(testCSV);
+    expect(metrics[0]?.recordFields).to.be.eql(expectedRecordFields);
+
+    const parser2 = new CSVParser({
+      headerRowCount: 2, 
+      trimSpace: true,
+    })
+
+    const testCSV2 = "   col  ,  col  ,col\n" +
+		"  1  ,  2  ,3\n" +
+		"  test  space  ,  80  ,test_name";
+
+    const metrics2 = await parser2.parse(testCSV2);
+
+    const expectedRecordFields2 = {
+      "col1": "test  space", 
+      "col2": 80,
+      "col3": "test_name",
+    };
+    expect(metrics2[0]?.recordFields).to.be.eql(expectedRecordFields2);
+  })
 })
