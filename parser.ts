@@ -460,9 +460,11 @@ export class CSVParser {
       this.config.measurementColumn &&
       measurementValue != undefined &&
       measurementValue != "";
-    const measurementName = !doesExist
-      ? this.config.metricName
-      : `${measurementValue}`;
+    const measurementName = doesExist
+      ? `${measurementValue}` : this.config.metricName;
+
+    // Exclude `measurementColumn`
+    delete recordFields[this.config.measurementColumn];  
 
     return {
       name: measurementName,
