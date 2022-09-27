@@ -10,6 +10,15 @@ interface Metric {
 
 const metric: Metric[] = [];
 
+class Metric {
+  constructor(name: any, tags: any, time: any, recordFields: any) {
+    this.name = name;
+    this.tags = tags;
+    this.time = time;
+    this.recordFields = recordFields;
+  }
+}
+
 describe("CSVParser", () => {
   it("Tests Basic CSV", async () => {
     const parser = new CSVParser({
@@ -186,8 +195,31 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
 3,4%70%test_name`
 
     const metrics = await parser.parse(testCSV);
-    console.log('metrics', metrics)
     expect(metrics[0]?.recordFields["first"]).to.be.eql("3,4");
 
   })
-});
+
+  it("Tests value conversion", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 0, 
+      delimiter: ",", 
+      columnNames: ["first", "second", "third", "fourth"], 
+      metricName: "test_value",
+    })
+
+    const testCSV = `3.3,4,true,hello`
+
+    const expectedRecordFields = {
+      "first": 3.3,
+      "second": 4, 
+      "third": true,
+      "fourth": "hello"
+    }
+    const metrics = await parser.parse(testCSV);
+
+    const expectedMetric = new Metric("test_value",{}, new Date(), expectedRecordFields);
+    const returnedMetric = new Metric(metrics[0]?.name, metrics[0]?.tags, new Date(), metrics[0]?.recordFields)
+
+    expect(expectedMetric).deep.equal(returnedMetric);
+  })
+})
