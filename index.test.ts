@@ -1,6 +1,15 @@
 import { expect } from "chai";
 import { CSVParser } from "./parser";
 
+interface Metric {
+  name: string;
+  tags: any;
+  time: any;
+  recordFields: any;
+}
+
+const metric: Metric[] = [];
+
 describe("CSVParser", () => {
   it("Tests Basic CSV", async () => {
     const parser = new CSVParser({
@@ -31,7 +40,7 @@ describe("CSVParser", () => {
       measurementColumn: "measurement",
     });
     const file = `measurement,cpu,time_user,time_system,time_idle,time
-  cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
+    cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     const metrics = await parser.parse(file);
     expect(metrics[0]?.name).to.be.eql("cpu");
   });
@@ -133,5 +142,36 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     expect(metrics[0]?.name).to.be.eql('test_name');
     expect(metrics[0]?.recordFields).to.be.eql(expectedRecordFields);
 
+    const testCSVRows:any = ["line1,line2,line3\r\n", "3.4,70,test_name\r\n"];
+
+    const parser2 = new CSVParser({
+      headerRowCount: 1,
+		  columnNames: ["first", "second", "third"],
+		  measurementColumn: "third",
+    })
+
+    const metrics2 = await parser2.parse(testCSVRows[0]);
+    expect(metrics2).to.be.eql(metric);
+
+    const metrics3 = await parser2.parseLine(testCSVRows[1]);
+    expect(metrics3?.name).to.be.eql('test_name');
+    expect(metrics3?.recordFields).to.be.eql(expectedRecordFields);
+
+
+  })
+
+  it("Tests quoted characters", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 1,
+		  columnNames: ["first", "second", "third"],
+		  measurementColumn: "third",
+    })
+
+    const testCSV = `line1,line2,line3
+"3,4",70,test_name`
+
+    const metrics = await parser.parse(testCSV);
+    console.log('metrics', metrics)
+    expect(metrics[0]?.recordFields["first"]).to.be.eql("3,4");
   })
 });
