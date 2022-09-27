@@ -20,7 +20,6 @@ describe("CSVParser", () => {
   1,2,3
   3.4,70,test_name`;
     const metrics = await parser.parse(file);
-    // console.log('concat_test', JSON.stringify(metrics));
     expect(metrics[0]?.name).to.be.eql("test_name");
   });
 
@@ -34,7 +33,6 @@ describe("CSVParser", () => {
     const file = `measurement,cpu,time_user,time_system,time_idle,time
   cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     const metrics = await parser.parse(file);
-    // console.log('test1', JSON.stringify(metrics));
     expect(metrics[0]?.name).to.be.eql("cpu");
   });
 
@@ -53,7 +51,6 @@ describe("CSVParser", () => {
 measurement,cpu,time_user,time_system,time_idle,time
 cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     const metrics = await parser.parse(file);
-    // console.log('metrics: ' + JSON.stringify(metrics))
     expect(Object.keys(metrics[0]?.tags)).deep.equal([
       "Version",
       "File Created",
@@ -72,12 +69,11 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
 
     const expectedRecordFields = {
       "first": 4,
-      "second": 9, // test fails when this values is 9.9
+      "second": 9.9,
       "third": true, 
       "fourth": "name_this"
     }
     const metrics = await parser.parse(file);
-    // console.log('skip comment: ' + JSON.stringify(metrics))
     expect(metrics[0]?.recordFields).to.be.eql(expectedRecordFields);
   });
 
@@ -91,13 +87,12 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     const file = ` 3.3, 4,    true,hello`;
 
     const expectedRecordFields = {
-      "first": 3, // test fails when value is 3.3
+      "first": 3.3,
       "second": 4,
       "third": true, 
       "fourth": "hello"
     }
     const metrics = await parser.parse(file);
-    // console.log('trim space: ' + JSON.stringify(metrics))
     expect(metrics[0]?.recordFields).to.be.eql(expectedRecordFields);
 
     const parser2 = new CSVParser({
@@ -115,8 +110,28 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
       "col2": 80,
       "col3": "test_name", 
     }
-    // console.log('trim space2: ' + JSON.stringify(metrics2))
     expect(metrics2[0]?.recordFields).to.be.eql(expectedRecordFields2);
 
   });
+
+  it("tests header override", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 1,
+		  columnNames: ["first", "second", "third"],
+		  measurementColumn: "third",
+    })
+
+    const testCSV = `line1,line2,line3
+    3.4,70,test_name`
+
+    const expectedRecordFields = {
+      "first":  3.4,
+		  "second": 70,
+    }
+
+    const metrics = await parser.parse(testCSV);
+    expect(metrics[0]?.name).to.be.eql('test_name');
+    expect(metrics[0]?.recordFields).to.be.eql(expectedRecordFields);
+
+  })
 });
