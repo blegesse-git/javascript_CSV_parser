@@ -431,7 +431,8 @@ export class CSVParser {
         const iValue = parseInt(value, 10);
         const fValue = parseFloat(value);
         const bValue = parseBool(value);
-        if (!isNaN(iValue)) {
+        
+        if (!isNaN(iValue) && Number.isInteger(+value)) { // checks if value is an integer (not float)
           recordFields[fieldName] = iValue;
         } else if (!isNaN(fValue)) {
           recordFields[fieldName] = fValue;
