@@ -216,10 +216,45 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
       "fourth": "hello"
     }
     const metrics = await parser.parse(testCSV);
-
     const expectedMetric = new Metric("test_value",{}, new Date(), expectedRecordFields);
     const returnedMetric = new Metric(metrics[0]?.name, metrics[0]?.tags, new Date(), metrics[0]?.recordFields)
 
     expect(expectedMetric).deep.equal(returnedMetric);
+
+    // // Test explicit type conversion.
+    const parser2 = new CSVParser({
+      headerRowCount: 0, 
+      delimiter: ",", 
+      columnNames: ["first", "second", "third", "fourth"], 
+      metricName: "test_value",
+      columnTypes: ["float", "int", "bool", "string"]
+    })
+
+    const metrics2 = await parser2.parse(testCSV);
+    const returnedMetric2 = new Metric(metrics2[0]?.name, metrics2[0]?.tags, new Date(), metrics2[0]?.recordFields)
+    expect(expectedMetric.recordFields).deep.equal(returnedMetric2.recordFields);
+
+  })
+
+  it("skips comments", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 0, 
+      comment: "#", 
+      columnNames: ["first", "second", "third", "fourth"],
+      metricName: "test_value",
+    });
+
+    const testCSV = `#3.3,4,true,hello
+    4,9.9,true,name_this`;
+
+    const expectedRecordFields = {
+      "first": 4, 
+      "second": 9.9, 
+      "third": true,
+      "fourth": "name_this"
+    }
+
+    const metrics = await parser.parse(testCSV);
+    expect(metrics[0]?.recordFields).to.be.eql(expectedRecordFields);
   })
 })
