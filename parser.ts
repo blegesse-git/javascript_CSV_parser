@@ -402,19 +402,19 @@ export class CSVParser {
           let val: any;
           switch (this.config.columnTypes[i]) {
             case "int":
-              val = parseInt(val, 10);
+              val = parseInt(value, 10);
               if (isNaN(val)) {
                 throw new Error("Column type: Column is not an integer");
               }
               break;
             case "float":
-              val = parseFloat(val);
+              val = parseFloat(value);
               if (isNaN(val)) {
                 throw new Error("Column type: Column is not a float");
               }
               break;
             case "bool":
-              val = parseBool(val);
+              val = parseBool(value);
               if (val === undefined) {
                 throw new Error("Column type: Column is not a boolean");
               }
