@@ -127,7 +127,7 @@ export class Config {
     if (
       this.columnNames.length &&
       this.columnTypes.length &&
-      this.columnNames.length === this.columnTypes.length
+      this.columnNames.length !== this.columnTypes.length
     ) {
       throw new Error(
         "columnNames field count doesn't match with columnTypes"
