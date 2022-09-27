@@ -101,6 +101,47 @@ export class Config {
     this.metadataSeparators = metadataSeparators;
     this.metadataTrimSet = metadataTrimSet;
     this.resetMode = resetMode;
+
+    this.init();
+  }
+
+  init() {
+    if (!this.headerRowCount && !this.columnNames.length) {
+      throw new Error(
+        "`headerRowCount` cannot be 0 if `columnNames` is not specified"
+      );
+    }
+
+    if (this.delimiter.length > 1) {
+      throw new Error(
+        `delimiter must be a single character, got: ${this.delimiter}`
+      );
+    }
+
+    if (this.comment.length > 1) {
+      throw new Error(
+        `comment must be a single character, got: ${this.comment}`
+      );
+    }
+
+    if (
+      this.columnNames.length &&
+      this.columnTypes.length &&
+      this.columnNames.length === this.columnTypes.length
+    ) {
+      throw new Error(
+        "columnNames field count doesn't match with columnTypes"
+      );
+    }
+
+    if (!this.resetMode) {
+      this.resetMode = "none";
+    }
+
+    if (!["none", "always"].includes(this.resetMode)) {
+      throw new Error(`expected "none" or "always" but got unknown reset mode ${this.resetMode}`);
+    }
+
   }
 }
 
@@ -117,7 +158,6 @@ export class CSVParser {
   config: Config;
 
   // InitFromConfig
-  // Partial type sets all properties to optional
   constructor(config?: Partial<ParserConfig>) {
     this.config = new Config(
       config?.columnNames ?? [],
@@ -147,45 +187,10 @@ export class CSVParser {
   }
 
   init() {
-    if (!this.config.headerRowCount && !this.config.columnNames.length) {
-      throw new Error(
-        "`headerRowCount` cannot be 0 if `columnNames` is not specified"
-      );
-    }
-
-    if (this.config.delimiter.length > 1) {
-      throw new Error(
-        `delimiter must be a single character, got: ${this.config.delimiter}`
-      );
-    }
-
-    if (this.config.comment.length > 1) {
-      throw new Error(
-        `comment must be a single character, got: ${this.config.comment}`
-      );
-    }
-
+    
     this.gotInitialColumnNames = !!this.config.columnNames.length;
-    if (
-      this.config.columnNames.length &&
-      this.config.columnTypes.length &&
-      this.config.columnNames.length === this.config.columnTypes.length
-    ) {
-      throw new Error(
-        "columnNames field count doesn't match with columnTypes"
-      );
-    }
-
+    
     this.initializeMetadataSeparator();
-
-    if (!this.config.resetMode) {
-      this.config.resetMode = "none";
-    }
-
-    if (!["none", "always"].includes(this.config.resetMode)) {
-      throw new Error(`expected "none" or "always" but got unknown reset mode ${this.config.resetMode}`);
-    }
-
     this.reset();
   }
 
