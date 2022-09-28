@@ -369,7 +369,74 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     expect(expectedRecordFields).to.be.eql(metrics2[0]?.recordFields);
     expect(expectedTags).to.be.eql(metrics2[0]?.tags);
 
+  })
 
+  it("skips columns", async () => {
+    const parser = new CSVParser({
+      skipColumns: 1, 
+      columnNames: ["line1", "line2"], 
+    });
+
+    const testCSV = `hello,80,test_name`;
+
+    const expectedRecordFields = {
+      "line1": 80, 
+      "line2": "test_name"
+    };
+
+    const metrics = await parser.parse(testCSV);
+    expect(expectedRecordFields).to.be.eql(metrics[0]?.recordFields);
+
+  })
+
+  it("skips columns with header", async () => {
+    const parser = new CSVParser({
+      skipColumns: 1, 
+      headerRowCount: 2,
+    });
+
+    const testCSV = `col,col,col
+1,2,3
+trash,80,test_name`;
+
+    const expectedRecordFields = {
+      "col2": 80, 
+      "col3": "test_name"
+    };
+
+    const metrics = await parser.parse(testCSV);
+    expect(expectedRecordFields).to.be.eql(metrics[0]?.recordFields);
+
+  })
+
+  it("can parse with multi header config", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 2,
+    });
+
+    const testCSV = `col,col
+1,2
+80,test_name`;
+
+    const expectedRecordFields = {
+      "col1": 80, 
+      "col2": "test_name"
+    };
+
+    const metrics = await parser.parse(testCSV);
+    expect(expectedRecordFields).to.be.eql(metrics[0]?.recordFields);
+
+    const testCSVRows: any = ["col,col\r\n", "1,2\r\n", "80,test_name\r\n"];
+
+    const parser2 = new CSVParser({
+      headerRowCount: 2,
+    });
+
+    await expect(parser2.parse(testCSVRows[0])).to.be.rejectedWith(Error)
+    await expect(() => parser2.parse(testCSVRows[1])).to.not.throw();
+
+    const metrics2 = await parser2.parse(testCSVRows[2]);
+    expect(expectedRecordFields).to.be.eql(metrics2[0]?.recordFields);
 
 
   })
