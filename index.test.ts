@@ -440,4 +440,45 @@ trash,80,test_name`;
 
 
   })
+
+  it("parses stream", async () => {
+    const parser = new CSVParser({
+      metricName: "csv", 
+      headerRowCount: 1,
+    });
+
+    const csvHeader = "a,b,c";
+    const csvBody = "1,2,3";
+
+    const metrics = await parser.parse(csvHeader);
+    expect(metrics.length).to.be.eql(0);
+
+    const metrics2: any = await parser.parseLine(csvBody);
+    expect(Object.values(metrics2)).deep.equal(["csv", {}, {"a": 1, "b": 2, "c": 3}, new Date()])
+
+  })
+
+  it("throws multi metric error message", async () => {
+    const parser = new CSVParser({
+      metricName: "csv", 
+      headerRowCount: 1,
+    });
+
+    const csvHeader = "a,b,c";
+    const csvOneRow = "1,2,3";
+    const csvTwoRows = "4,5,6\n7,8,9";
+
+    const metrics = await parser.parse(csvHeader);
+    expect(metrics.length).to.be.eql(0);
+
+    const metrics2: any = await parser.parseLine(csvOneRow);
+    expect(Object.values(metrics2)).deep.equal(["csv", {}, {"a": 1, "b": 2, "c": 3}, new Date()])
+
+    await expect(parser.parseLine(csvTwoRows)).to.be.rejectedWith(Error, 'Expected 1 metric found 2')
+
+    const metrics3 = await parser.parse(csvTwoRows);
+    expect(metrics3.length).to.be.eql(2);
+
+
+  })
 })
