@@ -755,4 +755,54 @@ corrupted_line
     expect(parser4.metadataSeparatorList).deep.equal([",", ":", "=", ":="]);
   });
 
+  it("can parse metadata row", async () => { // trimming fails test
+    const parser = new CSVParser({
+      columnNames: ["a", "b"],
+      metadataRows: 5, 
+      metadataSeparators: [":=", ",", ":", "="]
+    });
+
+    expect(Object.keys(parser.metadataTags).length).to.equal(0);
+
+    let parseMetadata = parser.parseMetadataRow("# this is a not matching string");
+    expect(parseMetadata).to.be.empty;
+
+    parseMetadata = parser.parseMetadataRow("# key1 : value1 \r\n");
+    expect(parseMetadata).to.deep.equal({"# key1 ": " value1 "});
+
+    parseMetadata = parser.parseMetadataRow("key2=1234\n");
+    expect(parseMetadata).to.deep.equal({"key2": "1234"});
+
+    // test fails
+    // parseMetadata = parser.parseMetadataRow(" file created : 2021-10-08T12:34:18+10:00 \r\n");
+    // expect(parseMetadata).to.deep.equal({" file created ": " 2021-10-08T12:34:18+10:00 "});
+
+    // parseMetadata = parser.parseMetadataRow("file created: 2021-10-08T12:34:18\t\r\r\n");
+    // expect(parseMetadata).to.deep.equal({"file created": " 2021-10-08T12:34:18\t"});
+
+    const parser2 = new CSVParser({
+      columnNames: ["a", "b"],
+      metadataRows: 5, 
+      metadataSeparators: [":=", ",", ":", "="],
+      metadataTrimSet: " #'"
+    });
+
+    expect(Object.keys(parser2.metadataTags).length).to.equal(0);
+
+    let parseMetadata2 = parser2.parseMetadataRow("# this is a not matching string");
+    expect(parseMetadata2).to.be.empty;
+    parseMetadata = parser2.parseMetadataRow("# key1 : value1 \r\n");
+    expect(parseMetadata).to.deep.equal({"key1": "value1"});
+
+    parseMetadata = parser2.parseMetadataRow("key2=1234\n");
+    expect(parseMetadata).to.deep.equal({"key2": "1234"});
+
+    // test fails
+    // parseMetadata = parser2.parseMetadataRow(" file created : 2021-10-08T12:34:18+10:00 \r\n");
+    // expect(parseMetadata).to.deep.equal({"file created": "2021-10-08T12:34:18+10:00"});
+
+    // parseMetadata = parser2.parseMetadataRow("file created: '2021-10-08T12:34:18'\r\n");
+    // expect(parseMetadata).to.deep.equal({"file created": "2021-10-08T12:34:18"});
+
+  });
 })
