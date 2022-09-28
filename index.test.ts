@@ -1,4 +1,5 @@
-import { expect } from "chai";
+import { expect, use } from "chai";
+import chaiAsPromised = require('chai-as-promised');
 import { CSVParser } from "./parser";
 
 interface Metric {
@@ -20,6 +21,10 @@ class Metric {
 }
 
 describe("CSVParser", () => {
+  before(async () => {
+    use(chaiAsPromised)
+  });
+
   it("Tests Basic CSV", async () => {
     const parser = new CSVParser({
       columnNames: ["first", "second", "third"],
@@ -295,5 +300,77 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
       "col3": "test_name",
     };
     expect(metrics2[0]?.recordFields).to.be.eql(expectedRecordFields2);
+  })
+
+//   it("trim space delimited by space", async () => { // TODO: test fails 
+//     const parser = new CSVParser({
+//       delimiter: " ", 
+//       headerRowCount: 1, 
+//       trimSpace: true,
+//     });
+
+//     const testCSV = `   first   second   third   fourth
+// abcdefgh        0       2    false
+// abcdef      3.3       4     true
+// f        0       2    false`;
+
+//     const expectedRecordFields = {
+//       "first":  "abcdef",
+//       "second": 3.3,
+//       "third":  4,
+//       "fourth": true,
+//     };
+
+//     const metrics = await parser.parse(testCSV);
+//     // console.log('metrics:', metrics)
+//     // expect(metrics[1]?.recordFields).to.be.eql(expectedRecordFields);
+//   })
+
+  it("skips rows", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 1, 
+      skipRows: 1, 
+      tagColumns: ["line1"],
+      measurementColumn: "line3"
+    });
+
+    const testCSV = `garbage nonsense
+    line1,line2,line3
+    hello,80,test_name2`;
+
+    const expectedRecordFields = {
+      "line2": 80
+    };
+
+    const expectedTags = {
+      "line1": "hello",
+    };
+
+    const metrics = await parser.parse(testCSV);
+    expect("test_name2").to.be.eql(metrics[0]?.name);
+    expect(expectedRecordFields).to.be.eql(metrics[0]?.recordFields);
+    expect(expectedTags).to.be.eql(metrics[0]?.tags);
+
+    // test with csv rows 
+    const parser2 = new CSVParser({
+      headerRowCount: 1, 
+      skipRows: 1, 
+      tagColumns: ["line1"],
+      measurementColumn: "line3"
+    });
+    const testCSVRows: any = ["garbage nonsense\r\n", "line1,line2,line3\r\n", "hello,80,test_name2\r\n"];
+
+    await expect(parser2.parse(testCSVRows[0])).to.be.rejectedWith(Error)
+    await expect(() => parser2.parse(testCSVRows[1])).to.not.throw();
+    await expect(() => parser2.parse(testCSVRows[2])).to.not.throw();
+
+    const metrics2 = await parser2.parse(testCSVRows[2]);
+    expect("test_name2").to.be.eql(metrics2[0]?.name);
+    expect(expectedRecordFields).to.be.eql(metrics2[0]?.recordFields);
+    expect(expectedTags).to.be.eql(metrics2[0]?.tags);
+
+
+
+
   })
 })
