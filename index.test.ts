@@ -469,12 +469,28 @@ trash,80,test_name`;
     const csvHeader = "a,b,c";
     const csvBody = "1,2,3";
 
+    const expected = [
+      {
+        name: "csv",
+        tags: {},
+        fields: {
+          "a": 1,
+          "b": 2,
+          "c": 3
+        },
+        time: date
+      }
+    ]
+
     const metrics = await parser.parse(csvHeader);
     expect(metrics.length).to.be.eql(0);
 
-    const metrics2: any = await parser.parseLine(csvBody);
-    console.log(metrics2);
-    expect(Object.values(metrics2)).deep.equal(["csv", {}, {"a": 1, "b": 2, "c": 3}, date])
+    const metrics2 = await parser.parseLine(csvBody);
+
+    expect(metrics2?.name).to.deep.equal(expected[0]?.name)
+    expect(metrics2?.fields).to.deep.equal(expected[0]?.fields)
+    expect(metrics2?.tags).to.deep.equal(expected[0]?.tags)
+    expect(JSON.stringify(metrics2?.time)).to.deep.equal(JSON.stringify(expected[0]?.time))
 
   })
 
@@ -587,11 +603,10 @@ trash,80,test_name`;
       },
       time: date
     }
-    console.log(metrics)
     expect(expected.name).to.be.eql(metrics[0]?.name);
     expect(expected.tags).to.be.eql(metrics[0]?.tags);
     expect(expected.fields).to.be.eql(metrics[0]?.fields);
-    // expect(expected.time).to.be.eql(metrics[0]?.time);
+    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
 
   });
 
@@ -615,8 +630,8 @@ trash,80,test_name`;
         "b": 2,
       },
       time: date
-    }
-    console.log('metrics:', metrics);
+    };
+    
     expect(expected.name).to.be.eql(metrics[0]?.name);
     expect(expected.tags).to.be.eql(metrics[0]?.tags);
     expect(expected.fields).to.be.eql(metrics[0]?.fields);
@@ -1327,8 +1342,6 @@ timestamp,category,id,flag
     // This should work as the parser is reset
     const metrics2 = await parser.parse(testCSV2);
     expect(() => metrics2).to.not.throw(Error);
-
-    console.log('metrics2', metrics2)
 
     expect(metrics2[0]?.name).to.deep.equal(expected2[0]?.name)
     expect(metrics2[0]?.fields).to.deep.equal(expected2[0]?.fields)
