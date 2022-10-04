@@ -1,6 +1,3 @@
-import { EOFError, LocalFile } from "./utils";
-import { CSVReader } from "./reader";
-
 import dayjs from "dayjs";
 import dayjsCustomParseFormat from "dayjs/plugin/customParseFormat";
 import dayjsUTC from "dayjs/plugin/utc";
@@ -8,6 +5,9 @@ import dayjsTimezone from "dayjs/plugin/timezone";
 dayjs.extend(dayjsCustomParseFormat);
 dayjs.extend(dayjsUTC);
 dayjs.extend(dayjsTimezone);
+
+import { EOFError, LocalFile } from "./utils";
+import { CSVReader } from "./reader";
 
 interface Metric {
   name: string;
@@ -88,10 +88,10 @@ export class Config {
     metadataRows: number,
     metadataSeparators: string[],
     metadataTrimSet: string,
-    resetMode: string,
+    resetMode: 'none' | 'always',
     timeFunc: TimeFunc
   ) {
-    this.columnNames = columnNames;
+    this.columnNames = columnNames ?? [];
     this.columnTypes = columnTypes;
     this.comment = comment;
     this.defaultTags = defaultTags;
@@ -111,13 +111,9 @@ export class Config {
     this.metadataRows = metadataRows;
     this.metadataSeparators = metadataSeparators;
     this.metadataTrimSet = metadataTrimSet;
-    this.resetMode = resetMode;
+    this.resetMode = resetMode || 'none';
     this.timeFunc = timeFunc;
 
-    this.init();
-  }
-
-  init() {
     if (!this.headerRowCount && !this.columnNames.length) {
       throw new Error(
         "`headerRowCount` cannot be 0 if `columnNames` is not specified"
@@ -130,6 +126,8 @@ export class Config {
       );
     }
 
+    // we might consider removing this configuration option and forcing people to use # as comment
+    // let's see how it goes in the wild
     if (this.comment.length > 1) {
       throw new Error(
         `comment must be a single character, got: ${this.comment}`
@@ -146,14 +144,9 @@ export class Config {
       );
     }
 
-    if (!this.resetMode) {
-      this.resetMode = "none";
-    }
-
     if (!["none", "always"].includes(this.resetMode)) {
       throw new Error(`expected "none" or "always" but got unknown reset mode ${this.resetMode}`);
     }
-
   }
 }
 
@@ -170,12 +163,13 @@ export class CSVParser {
   config: Config;
 
   // InitFromConfig
+  // Move these fallback configuration values into the Config constructor then REMOVE THIS COMMENT
   constructor(config?: Partial<ParserConfig>) {
     this.config = new Config(
-      config?.columnNames ?? [],
-      config?.columnTypes ?? [], 
-      config?.comment ?? "", 
-      config?.defaultTags ?? {}, 
+      config?.columnNames,
+      config?.columnTypes ?? [],
+      config?.comment ?? "",
+      config?.defaultTags ?? {},
       config?.delimiter ?? "",
       config?.headerRowCount ?? 0,
       config?.measurementColumn ?? "",
@@ -192,17 +186,12 @@ export class CSVParser {
       config?.metadataRows ?? 0,
       config?.metadataSeparators ?? [],
       config?.metadataTrimSet ?? "",
-      config?.resetMode ?? "none",
+      config?.resetMode,
       config?.timeFunc ?? (() => new Date())
     )
 
-    this.init();
-  }
-
-  init() {
-    
     this.gotInitialColumnNames = !!this.config.columnNames.length;
-    
+
     this.initializeMetadataSeparator();
     this.reset();
   }
@@ -241,7 +230,7 @@ export class CSVParser {
   reset() {
     // Reset the columns if they were not user-specified
     this.gotColumnNames = this.gotInitialColumnNames;
-    if (!this.gotInitialColumnNames) {
+    if (!this.gotColumnNames) {
       this.config.columnNames = [];
     }
 
@@ -291,27 +280,29 @@ export class CSVParser {
   }
 
   private async parseCSV(file: LocalFile) {
-    file = typeof file === "string" ? file: await file.text();
+    let localFile = typeof file === "string" ? file : await file.text();
 
     // Skip first rows
     while (this.remainingSkipRows > 0) {
-      let { text } = this.readLine(file);
-      file = text;
+      let { text } = this.readLine(localFile);
+      localFile = text;
       this.remainingSkipRows--;
     }
 
     // Parse metadata
     while (this.remainingMetadataRows > 0) {
-      let { line, text } = this.readLine(file);
-      file = text;
+      let { line, text } = this.readLine(localFile);
+      localFile = text;
       this.remainingMetadataRows--;
-      const m = this.parseMetadataRow(line);
-      for (const k in m) {
-        this.metadataTags[k] = m[k]!;
+
+      const metadata = this.parseMetadataRow(line);
+      for (const key in metadata) {
+        this.metadataTags[key] = metadata[key]!;
       }
     }
 
-    const csvReader = this.compile(file);
+    // CODE REVIEW STOPPED HERE, CONTINUE FROM THIS POINT
+    const csvReader = this.compile(localFile);
     // If there is a header, and we did not get DataColumns
     // set DataColumns to names extracted from the header
     // we always reread the header to avoid side effects
@@ -359,10 +350,13 @@ export class CSVParser {
     return metrics;
   }
 
+  // separate haystack into key:value pairs
   public parseMetadataRow(haystack: string) {
-    haystack = this.trimRight(haystack, "\r\n");
+    // remove newline characters from the haystack string
+    const trimmedHaystack = this.trimRight(haystack, "\r\n");
+
     for (const needle of this.metadataSeparatorList) {
-      const metadata = haystack.split(needle);
+      const metadata = trimmedHaystack.split(needle);
       if (metadata.length < 2) {
         continue;
       }
@@ -444,7 +438,7 @@ export class CSVParser {
         // Attempt type conversions
         const iValue = Number(value); // Use this to make timestamp parsing to turn to Nan
         const bValue = parseBool(value);
-        
+
         if (!isNaN(iValue) ) {
           recordFields[fieldName] = iValue;
         }
@@ -475,7 +469,7 @@ export class CSVParser {
     const measurementName = doesExist
       ? `${measurementValue}` : this.config.metricName;
 
-      
+
       const metricTime = parseTimestamp({
         timeFunc: this.timeFunc,
         recordFields,
@@ -483,10 +477,10 @@ export class CSVParser {
         timestampFormat: this.config.timestampFormat,
         timezone: this.config.timezone,
       });
-      
+
       // Exclude `measurementColumn` and `timestampColumn`
-      delete recordFields[this.config.measurementColumn];  
-      delete recordFields[this.config.timestampColumn];  
+      delete recordFields[this.config.measurementColumn];
+      delete recordFields[this.config.timestampColumn];
 
     return {
       name: measurementName,
@@ -496,13 +490,15 @@ export class CSVParser {
     };
   }
 
+  // read a line of text, then return the read line and the text with that line removed
   private readLine(text: string): { text: string; line: string } {
     if (text === "") {
       throw EOFError;
     }
 
     const lines = text.split("\n");
-    return { line: lines[0]!, text: lines.splice(1).join("\n") };
+    const firstLine = lines.shift()
+    return { line: firstLine!, text: lines.join("\n") };
   }
 
   private trim(s: string, cutset: string) {
