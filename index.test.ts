@@ -15,9 +15,9 @@ dayjs.extend(dayjsTimezone);
 
 interface Metric {
   name: string;
-  tags: any;
-  time: any;
-  fields: any;
+  tags: Record<string, any>;
+  time: Date;
+  fields: Record<string, any>;
 }
 
 const metric: Metric[] = [];

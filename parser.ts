@@ -202,10 +202,6 @@ export class CSVParser {
   init() {
     
     this.gotInitialColumnNames = !!this.config.columnNames.length;
-
-    // if (this.timeFunc == undefined) {
-    //   this.timeFunc = new Date()
-    // }
     
     this.initializeMetadataSeparator();
     this.reset();
@@ -492,25 +488,14 @@ export class CSVParser {
       delete recordFields[this.config.measurementColumn];  
       delete recordFields[this.config.timestampColumn];  
 
-      // console.log('recordFields:', recordFields);
-      // console.log('timestampColumn:', this.config.timestampColumn);
-
     return {
       name: measurementName,
       tags,
       fields: recordFields,
       time: metricTime
-      // time: parseTimestamp({
-      //   timeFunc: this.timeFunc,
-      //   recordFields,
-      //   timestampColumn: this.config.timestampColumn,
-      //   timestampFormat: this.config.timestampFormat,
-      //   timezone: this.config.timezone,
-      // }),
     };
   }
 
-  // naming of method can be improved 
   private readLine(text: string): { text: string; line: string } {
     if (text === "") {
       throw EOFError;
