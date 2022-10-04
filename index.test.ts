@@ -23,7 +23,7 @@ interface Metric {
 const metric: Metric[] = [];
 
 class Metric {
-  constructor(name: any, tags: any, time: any, fields: any) {
+  constructor(name: string, tags: any, time: Date, fields: any) {
     this.name = name;
     this.tags = tags;
     this.time = time;
@@ -34,7 +34,7 @@ class Metric {
 
 
 describe("CSVParser", () => {
-  const date = '2020-04-13T18:09:12.451Z'
+  const date = "2020-04-13T18:09:12.451Z"
   beforeEach(async () => {
     use(chaiAsPromised)
     set(date) // Any request to Date will return this date
@@ -323,7 +323,7 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     expect(metrics2[0]?.fields).to.be.eql(expectedFields2);
   })
 
-  it("trim space delimited by space", async () => { // TODO: TestTrimSpaceDelimitedBySpace
+  it("trim space delimited by space", async () => {
     const parser = new CSVParser({
       delimiter: " ",
       headerRowCount: 1,
@@ -371,7 +371,6 @@ hello,80,test_name2`;
     expect(expectedTags).to.be.eql(metrics[0]?.tags);
 
 
-    // test with csv rows 
     const parser2 = new CSVParser({
       headerRowCount: 1, 
       skipRows: 1, 
@@ -503,7 +502,7 @@ trash,80,test_name`;
 
   })
 
-  it("testing time stamp unix float precision", async () => { // TODO: TestTimestampUnixFloatPrecision
+  it("testing time stamp unix float precision", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       columnNames: ["time", "value"],
@@ -522,8 +521,9 @@ trash,80,test_name`;
 
     expect(metrics[0]).to.deep.equal(expected);
     
-  })
-  it("skips measurement column", async () => { // TODO: TestSkipMeasurementColumn
+  });
+
+  it("skips measurement column", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -545,9 +545,9 @@ trash,80,test_name`;
     expect(metrics[0]).to.deep.equal(expected);
 
 
-  })
+  });
 
-  it("time stamp time zone ", async () => { // TODO: TestTimestampTimezone
+  it("time stamp time zone ", async () => {
       const parser = new CSVParser({
         headerRowCount: 1,
         columnNames: ["first", "second", "third"],
@@ -562,11 +562,11 @@ trash,80,test_name`;
   07/11/09 11:05:06 PM,80,test_name2`;
   
       const metrics = await parser.parse(testCSV);
-      // console.log(metrics);
       expect(metrics[0]?.time).to.deep.equal(dayjs.unix(1243094706).toDate());
       expect(metrics[1]?.time).to.deep.equal(dayjs.unix(1257609906).toDate());
-  })
-  it("can handle empty measurement name", async () => { // TODO: test fails. timestamp
+  });
+
+  it("can handle empty measurement name", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -585,9 +585,9 @@ trash,80,test_name`;
       fields: {
         "b": 2,
       },
-      // time: time.unix(0,0)
+      time: date
     }
-    // console.log(metrics)
+    console.log(metrics)
     expect(expected.name).to.be.eql(metrics[0]?.name);
     expect(expected.tags).to.be.eql(metrics[0]?.tags);
     expect(expected.fields).to.be.eql(metrics[0]?.fields);
@@ -595,7 +595,7 @@ trash,80,test_name`;
 
   });
 
-  it("handles numeric measurement name", async () => { // ignoring time field
+  it("handles numeric measurement name", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -614,17 +614,17 @@ trash,80,test_name`;
       fields: {
         "b": 2,
       },
-      metricTime: new Date()
+      time: date
     }
+    console.log('metrics:', metrics);
     expect(expected.name).to.be.eql(metrics[0]?.name);
     expect(expected.tags).to.be.eql(metrics[0]?.tags);
-    // expect(expected.recordFields).to.be.eql(metrics[0]?.recordFields);
-    // expect(expected.metricTime).to.be.eql(metrics[0]?.metricTime);
-    // console.log('metrics:', metrics);
+    expect(expected.fields).to.be.eql(metrics[0]?.fields);
+    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
 
   });
 
-  it("can handle static measurement name", async () => { // ignoring time field
+  it("can handle static measurement name", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -643,16 +643,16 @@ trash,80,test_name`;
         "a": 1,
         "b": 2,
       },
-      // time: time.unix(0,0)
+      time: date
     }
     expect(expected.name).to.be.eql(metrics[0]?.name);
     expect(expected.tags).to.be.eql(metrics[0]?.tags);
     expect(expected.fields).to.be.eql(metrics[0]?.fields);
-    // expect(expected.time).to.be.eql(metrics[0]?.time);
+    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
 
   });
 
-  it("skips empty string value", async () => { // ignoring time field
+  it("skips empty string value", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -671,16 +671,16 @@ trash,80,test_name`;
       fields: {
         "a": 1,
       },
-      // time: time.unix(0,0)
+      time: date
     }
     expect(expected.name).to.be.eql(metrics[0]?.name);
     expect(expected.tags).to.be.eql(metrics[0]?.tags);
     expect(expected.fields).to.be.eql(metrics[0]?.fields);
-    // expect(expected.time).to.be.eql(metrics[0]?.time);
+    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
 
   });
 
-  it("skips specified string value", async () => { // ignoring time field
+  it("skips specified string value", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -699,16 +699,16 @@ trash,80,test_name`;
       fields: {
         "a": 1,
       },
-      // time: time.unix(0,0)
+      time: date
     }
     expect(expected.name).to.be.eql(metrics[0]?.name);
     expect(expected.tags).to.be.eql(metrics[0]?.tags);
     expect(expected.fields).to.be.eql(metrics[0]?.fields);
-    // expect(expected.time).to.be.eql(metrics[0]?.time);
+    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
 
   });
 
-  it("skips error on corrupted CSV line", async () => { // TODO: TestSkipErrorOnCorruptedCSVLine
+  it("skips error on corrupted CSV line", async () => {
     const parser = new CSVParser({
       headerRowCount: 1,
       timestampColumn: "date",
@@ -732,7 +732,6 @@ corrupted_line
       "b": 4,
     }
     const metrics = await parser.parse(testCSV);
-  //  console.log(metrics);
   expect(metrics[0]?.fields).to.deep.equal(expectedfields0);
   expect(metrics[1]?.fields).to.deep.equal(expectedfields1);
   });
@@ -780,7 +779,7 @@ corrupted_line
     expect(parser4.metadataSeparatorList).deep.equal([":=", ",", ":", "="]);
   });
 
-  it("can parse metadata row", async () => { // trimming time incorrectly
+  it("can parse metadata row", async () => {
     const parser = new CSVParser({
       columnNames: ["a", "b"],
       metadataRows: 5, 
@@ -798,13 +797,11 @@ corrupted_line
     parseMetadata = parser.parseMetadataRow("key2=1234\n");
     expect(parseMetadata).to.deep.equal({"key2": "1234"});
 
-    // test fails
     parseMetadata = parser.parseMetadataRow(" file created : 2021-10-08T12:34:18+10:00 \r\n");
-    // console.log(parseMetadata);
-    // expect(parseMetadata).to.deep.equal({" file created ": " 2021-10-08T12:34:18+10:00 "});
+    expect(parseMetadata).to.deep.equal({" file created ": " 2021-10-08T12:34:18+10:00 "});
 
-    // parseMetadata = parser.parseMetadataRow("file created: 2021-10-08T12:34:18\t\r\r\n");
-    // expect(parseMetadata).to.deep.equal({"file created": " 2021-10-08T12:34:18\t"});
+    parseMetadata = parser.parseMetadataRow("file created: 2021-10-08T12:34:18\t\r\r\n");
+    expect(parseMetadata).to.deep.equal({"file created": " 2021-10-08T12:34:18\t"});
 
     const parser2 = new CSVParser({
       columnNames: ["a", "b"],
@@ -823,16 +820,15 @@ corrupted_line
     parseMetadata = parser2.parseMetadataRow("key2=1234\n");
     expect(parseMetadata).to.deep.equal({"key2": "1234"});
 
-    // test fails
-    // parseMetadata = parser2.parseMetadataRow(" file created : 2021-10-08T12:34:18+10:00 \r\n");
-    // expect(parseMetadata).to.deep.equal({"file created": "2021-10-08T12:34:18+10:00"});
+    parseMetadata = parser2.parseMetadataRow(" file created : 2021-10-08T12:34:18+10:00 \r\n");
+    expect(parseMetadata).to.deep.equal({"file created": "2021-10-08T12:34:18+10:00"});
 
-    // parseMetadata = parser2.parseMetadataRow("file created: '2021-10-08T12:34:18'\r\n");
-    // expect(parseMetadata).to.deep.equal({"file created": "2021-10-08T12:34:18"});
+    parseMetadata = parser2.parseMetadataRow("file created: '2021-10-08T12:34:18'\r\n");
+    expect(parseMetadata).to.deep.equal({"file created": "2021-10-08T12:34:18"});
 
   });
 
-  it("parses CSV file with metadata", async () => { // TODO: TestParseCSVFileWithMetadata
+  it("parses CSV file with metadata", async () => {
     const parser = new CSVParser({
       headerRowCount: 1, 
       skipRows: 2, 
@@ -888,7 +884,6 @@ timestamp,type,name,status
       expect(expectedFields[i]).to.deep.equal(metric.fields);
       expect(expectedTags[i]).to.deep.equal(metric.tags);
     });
-    // console.log(metrics);
 
     const parser2 = new CSVParser({
       headerRowCount: 1, 
@@ -986,7 +981,7 @@ timestamp,type,name,status
     })).to.throw(Error, `expected "none" or "always" but got unknown reset mode garbage`)
   });
 
-  it("can handle parsing csv with rest mode none", async () => { // TODO:  timestamp test failure and more
+  it("can handle parsing csv with rest mode none", async () => { // 1 error
 
     const testCSV = `garbage nonsense that needs be skipped
 
@@ -1008,11 +1003,11 @@ timestamp,type,name,status
           "file created": "2021-10-08T12:34:18+10:00",
           "test": "tag",
         },
-        recordFields: {
+        fields: {
           "name": "R002",
 				  "status": 1,
         },
-        time: new Date()
+        time: "2020-11-23T08:19:27.000Z"
       },
       {
         name: "",
@@ -1022,11 +1017,11 @@ timestamp,type,name,status
           "file created": "2021-10-08T12:34:18+10:00",
           "test": "tag",
         },
-        recordFields: {
+        fields: {
           "name": "C001",
 				  "status": 0,
         },
-        time: new Date()
+        time: "2020-11-04T13:29:47.000Z"
       }
     ];
 
@@ -1039,7 +1034,7 @@ timestamp,type,name,status
       metadataSeparators: [":", "="],
       metadataTrimSet: " #",
       timestampColumn: "timestamp",
-      timestampFormat: "2006-01-02T15:04:05Z07:00",
+      timestampFormat: "iso8601",
       resetMode: "none"
     })
     expect(() => parser).to.not.throw(Error);
@@ -1048,8 +1043,16 @@ timestamp,type,name,status
     parser.setDefaultTags({"test": "tag"});
 
     const metrics = await parser.parse(testCSV);
-    // expect(metrics[0]).to.deep.equal(expected[0])
-    // expect(metrics[1]).to.deep.equal(expected[1])
+
+    expect(metrics[0]?.name).to.deep.equal(expected[0]?.name)
+    expect(metrics[0]?.fields).to.deep.equal(expected[0]?.fields)
+    expect(metrics[0]?.tags).to.deep.equal(expected[0]?.tags)
+    expect(JSON.stringify(metrics[0]?.time)).to.deep.equal(JSON.stringify(expected[0]?.time))
+    
+    expect(metrics[1]?.name).to.deep.equal(expected[1]?.name)
+    expect(metrics[1]?.fields).to.deep.equal(expected[1]?.fields)
+    expect(metrics[1]?.tags).to.deep.equal(expected[1]?.tags)
+    expect(JSON.stringify(metrics[1]?.time)).to.deep.equal(JSON.stringify(expected[1]?.time))
 
     // Parsing another data line should work when not resetting
     const additionalCSV = "2021-12-01T19:01:00+00:00,Reader,R009,5\r\n";
@@ -1062,20 +1065,26 @@ timestamp,type,name,status
           "file created": "2021-10-08T12:34:18+10:00",
           "test": "tag",
         },
-        recordFields: {
+        fields: {
           "name": "R009",
 				  "status": 5,
         },
-        time: "2021-12-01T19:01:00+00:00"
+        time: "2021-12-01T19:01:00.000Z"
       }
     ];
 
     const metrics2 = await parser.parse(additionalCSV);
     expect(() => metrics2).to.not.throw(Error);
-    // expect(metrics2[0]).to.deep.equal(additionalExpected[0])
+
+    expect(metrics2[0]?.name).to.deep.equal(additionalExpected[0]?.name)
+    expect(metrics2[0]?.fields).to.deep.equal(additionalExpected[0]?.fields)
+    expect(metrics2[0]?.tags).to.deep.equal(additionalExpected[0]?.tags)
+    expect(JSON.stringify(metrics2[0]?.time)).to.deep.equal(JSON.stringify(additionalExpected[0]?.time))
 
     // This should fail when not resetting but reading again due to the header etc
-    // console.log('error?', await parser.parse(testCSV))
+    // expect(await parser.parse(testCSV)).to.be.rejectedWith(Error)
+    // console.log("metric again", await parser.parse(testCSV))
+    // await expect(parser.parse(testCSV)).to.be.rejectedWith(Error)
   });
 
   it("parsing csv with rest mode none", async () => { // TODO: timestamp test failure and more
@@ -1198,7 +1207,7 @@ timestamp,type,name,status
     // console.log('error?', await parser.parse(testCSV))
   });
 
-  it("can parse csv with always resetmode", async () => { // timestamp is off
+  it("can parse csv with always resetmode", async () => {
     const testCSV = `garbage nonsense that needs be skipped
 
 # version= 1.0
@@ -1223,7 +1232,7 @@ timestamp,type,name,status
           "name": "R002",
           "status": 1
         },
-        time: "2021-12-01T19:01:00+00:00"
+        time: "2020-11-23T08:19:27.000Z"
       },
       {
         name: "",
@@ -1237,7 +1246,7 @@ timestamp,type,name,status
           "name": "C001",
           "status": 0
         },
-        time: "2021-12-01T19:01:00+00:00"
+        time: "2020-11-04T13:29:47.000Z"
       }
     ];
 
@@ -1250,15 +1259,23 @@ timestamp,type,name,status
       metadataSeparators: [":", "="],
       metadataTrimSet: " #",
       timestampColumn: "timestamp",
-      timestampFormat: "2006-01-02T15:04:05Z07:00",
+      timestampFormat: "iso8601",
       resetMode: "always",
     });
 
     parser.setDefaultTags({"test": "tag"});
 
     const metrics = await parser.parse(testCSV);
-    // FAIL: all timestamps inside metrics are off
-    // expect(metrics).to.deep.equal(expected);
+
+    expect(metrics[0]?.name).to.deep.equal(expected[0]?.name)
+    expect(metrics[0]?.fields).to.deep.equal(expected[0]?.fields)
+    expect(metrics[0]?.tags).to.deep.equal(expected[0]?.tags)
+    expect(JSON.stringify(metrics[0]?.time)).to.deep.equal(JSON.stringify(expected[0]?.time))
+
+    expect(metrics[1]?.name).to.deep.equal(expected[1]?.name)
+    expect(metrics[1]?.fields).to.deep.equal(expected[1]?.fields)
+    expect(metrics[1]?.tags).to.deep.equal(expected[1]?.tags)
+    expect(JSON.stringify(metrics[1]?.time)).to.deep.equal(JSON.stringify(expected[1]?.time))
 
     // Parsing another data line should fail as it is interpreted as header
     const additionalCSV = "2021-12-01T19:01:00+00:00,Reader,R009,5\r\n";
@@ -1285,11 +1302,11 @@ timestamp,category,id,flag
           "category": "Reader",
           "version": "1.0",
         },
-        recordFields: {
+        fields: {
           "id": "R002",
           "flag": 1
         },
-        time: "2021-12-01T19:01:00+00:00"
+        time: "2020-11-23T08:19:27.000Z"
       },
       {
         name: "",
@@ -1299,11 +1316,11 @@ timestamp,category,id,flag
           "category": "Coordinator",
           "version": "1.0",
         },
-        recordFields: {
+        fields: {
           "id": "C001",
           "flag": 0
         },
-        time: "2021-12-01T19:01:00+00:00"
+        time: "2020-11-04T13:29:47.000Z"
       }
     ];
 
@@ -1311,7 +1328,17 @@ timestamp,category,id,flag
     const metrics2 = await parser.parse(testCSV2);
     expect(() => metrics2).to.not.throw(Error);
 
-    // expect(metrics2).to.deep.equal(expected2);
+    console.log('metrics2', metrics2)
+
+    expect(metrics2[0]?.name).to.deep.equal(expected2[0]?.name)
+    expect(metrics2[0]?.fields).to.deep.equal(expected2[0]?.fields)
+    expect(metrics2[0]?.tags).to.deep.equal(expected2[0]?.tags)
+    expect(JSON.stringify(metrics2[0]?.time)).to.deep.equal(JSON.stringify(expected2[0]?.time))
+
+    expect(metrics2[1]?.name).to.deep.equal(expected2[1]?.name)
+    expect(metrics2[1]?.fields).to.deep.equal(expected2[1]?.fields)
+    expect(metrics2[1]?.tags).to.deep.equal(expected2[1]?.tags)
+    expect(JSON.stringify(metrics2[1]?.time)).to.deep.equal(JSON.stringify(expected2[1]?.time))
   });
 
   it("can parse CSV line with always resetmode", async () => { // TODO: csv row failure
