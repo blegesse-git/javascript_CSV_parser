@@ -1,11 +1,19 @@
 import { EOFError, LocalFile } from "./utils";
 import { CSVReader } from "./reader";
 
+import dayjs from "dayjs";
+import dayjsCustomParseFormat from "dayjs/plugin/customParseFormat";
+import dayjsUTC from "dayjs/plugin/utc";
+import dayjsTimezone from "dayjs/plugin/timezone";
+dayjs.extend(dayjsCustomParseFormat);
+dayjs.extend(dayjsUTC);
+dayjs.extend(dayjsTimezone);
+
 interface Metric {
   name: string;
-  tags: any;
-  time: any;
-  recordFields: any;
+  tags: Record<string, any>;
+  time: Date;
+  fields: Record<string, any>;
 }
 
 interface ParserConfig {
@@ -30,6 +38,7 @@ interface ParserConfig {
   metadataSeparators: string[];
   metadataTrimSet: string;
   resetMode: string;
+  timeFunc: TimeFunc;
 }
 
 type TimeFunc = () => Date;
@@ -56,6 +65,7 @@ export class Config {
   metadataSeparators: string[];
   metadataTrimSet: string;
   resetMode: string;
+  timeFunc: TimeFunc;
 
   constructor (
     columnNames: string[],
@@ -79,6 +89,7 @@ export class Config {
     metadataSeparators: string[],
     metadataTrimSet: string,
     resetMode: string,
+    timeFunc: TimeFunc
   ) {
     this.columnNames = columnNames;
     this.columnTypes = columnTypes;
@@ -101,6 +112,7 @@ export class Config {
     this.metadataSeparators = metadataSeparators;
     this.metadataTrimSet = metadataTrimSet;
     this.resetMode = resetMode;
+    this.timeFunc = timeFunc;
 
     this.init();
   }
@@ -153,8 +165,8 @@ export class CSVParser {
   private remainingSkipRows = 0;
   private remainingHeaderRows = 0;
   private remainingMetadataRows = 0;
-  private metadataTags: Record<string, string> = {};
-  private metadataSeparatorList: string[] = [];
+  public metadataTags: Record<string, string> = {};
+  public metadataSeparatorList: string[] = [];
   config: Config;
 
   // InitFromConfig
@@ -174,13 +186,14 @@ export class CSVParser {
       config?.timestampColumn ?? "",
       config?.timestampFormat ?? "",
       config?.timezone ?? "",
-      config?.trimSpace ?? true,
+      config?.trimSpace ?? false,
       config?.skipValues ?? [],
-      config?.skipErrors ?? false,
+      config?.skipErrors ?? true,
       config?.metadataRows ?? 0,
       config?.metadataSeparators ?? [],
       config?.metadataTrimSet ?? "",
-      config?.resetMode ?? "none"
+      config?.resetMode ?? "none",
+      config?.timeFunc ?? (() => new Date())
     )
 
     this.init();
@@ -189,6 +202,10 @@ export class CSVParser {
   init() {
     
     this.gotInitialColumnNames = !!this.config.columnNames.length;
+
+    // if (this.timeFunc == undefined) {
+    //   this.timeFunc = new Date()
+    // }
     
     this.initializeMetadataSeparator();
     this.reset();
@@ -258,7 +275,7 @@ export class CSVParser {
   private initializeMetadataSeparator() {
     if (this.config.metadataRows <= 0) return;
 
-    if (!this.config.metadataSeparators.length) {
+    if (this.config.metadataSeparators.length === 0) {
       throw new Error(
         "metadataSeparators required when specifying metadataRows"
       );
@@ -274,7 +291,7 @@ export class CSVParser {
       this.metadataSeparatorList.push(pattern);
     }
 
-    this.metadataSeparatorList.sort((a, b) => a.length - b.length);
+    this.metadataSeparatorList.sort((a, b) => b.length - a.length);
   }
 
   private async parseCSV(file: LocalFile) {
@@ -337,7 +354,7 @@ export class CSVParser {
         metrics.push(metric);
       } catch (err) {
         if (this.config.skipErrors) {
-          console.error(err);
+          console.error("Parsing error:", err);
           continue;
         }
         throw err;
@@ -346,13 +363,14 @@ export class CSVParser {
     return metrics;
   }
 
-  private parseMetadataRow(haystack: string) {
+  public parseMetadataRow(haystack: string) {
     haystack = this.trimRight(haystack, "\r\n");
     for (const needle of this.metadataSeparatorList) {
-      const metadata = haystack.split(needle, 2);
+      const metadata = haystack.split(needle);
       if (metadata.length < 2) {
         continue;
       }
+      metadata[1] = metadata.slice(1).join(needle);
       const key = this.trim(metadata[0]!, this.config.metadataTrimSet);
       if (key) {
         const value = this.trim(metadata[1]!, this.config.metadataTrimSet);
@@ -402,7 +420,7 @@ export class CSVParser {
           let val: any;
           switch (this.config.columnTypes[i]) {
             case "int":
-              val = parseInt(value, 10);
+              val = Number(value);
               if (isNaN(val)) {
                 throw new Error("Column type: Column is not an integer");
               }
@@ -428,17 +446,13 @@ export class CSVParser {
         }
 
         // Attempt type conversions
-        const iValue = parseInt(value, 10);
-        const fValue = parseFloat(value);
+        const iValue = Number(value); // Use this to make timestamp parsing to turn to Nan
         const bValue = parseBool(value);
         
-        // Number.isInteger(+value) checks if value is an integer (not float)
-        // value.indexOf(',') == -1 checks if value is a real number (not 3,4)
-        if (!isNaN(iValue) && Number.isInteger(+value) && value.indexOf(',') === -1) {
+        if (!isNaN(iValue) ) {
           recordFields[fieldName] = iValue;
-        } else if (!isNaN(fValue) && value.indexOf(',') === -1) {
-          recordFields[fieldName] = fValue;
-        } else if (bValue !== undefined) {
+        }
+        else if (bValue !== undefined) {
           recordFields[fieldName] = bValue;
         } else {
           recordFields[fieldName] = value;
@@ -465,30 +479,44 @@ export class CSVParser {
     const measurementName = doesExist
       ? `${measurementValue}` : this.config.metricName;
 
-    // Exclude `measurementColumn`
-    delete recordFields[this.config.measurementColumn];  
-
-    return {
-      name: measurementName,
-      tags,
-      recordFields,
-      time: parseTimestamp({
+      
+      const metricTime = parseTimestamp({
         timeFunc: this.timeFunc,
         recordFields,
         timestampColumn: this.config.timestampColumn,
         timestampFormat: this.config.timestampFormat,
         timezone: this.config.timezone,
-      }),
+      });
+      
+      // Exclude `measurementColumn` and `timestampColumn`
+      delete recordFields[this.config.measurementColumn];  
+      delete recordFields[this.config.timestampColumn];  
+
+      // console.log('recordFields:', recordFields);
+      // console.log('timestampColumn:', this.config.timestampColumn);
+
+    return {
+      name: measurementName,
+      tags,
+      fields: recordFields,
+      time: metricTime
+      // time: parseTimestamp({
+      //   timeFunc: this.timeFunc,
+      //   recordFields,
+      //   timestampColumn: this.config.timestampColumn,
+      //   timestampFormat: this.config.timestampFormat,
+      //   timezone: this.config.timezone,
+      // }),
     };
   }
 
   // naming of method can be improved 
   private readLine(text: string): { text: string; line: string } {
-    const lines = text.split("\n");
-    if (!lines.length) {
+    if (text === "") {
       throw EOFError;
     }
 
+    const lines = text.split("\n");
     return { line: lines[0]!, text: lines.splice(1).join("\n") };
   }
 
@@ -540,6 +568,7 @@ function parseTimestamp({
   recordFields,
   timestampColumn,
   timestampFormat,
+  timezone,
 }: ParseTimestampOptions) {
   if (timestampColumn) {
     if (recordFields[timestampColumn] === undefined) {
@@ -552,9 +581,38 @@ function parseTimestamp({
       case "":
         throw new Error("Timestamp format must be specified");
       default:
-        return new Date(recordFields[timestampColumn]);
+        return ParseTimestamp(
+          recordFields[timestampColumn],
+          timestampFormat,
+          timezone
+        );
     }
   }
 
   return timeFunc();
+}
+
+export function ParseTimestamp(
+  timestamp: any,
+  format: string,
+  timezone: string
+) {
+  switch (format.toLowerCase()) {
+    case "unix":
+      return dayjs(timestamp, "X").toDate();
+    case "unix_ms":
+    case "unix_us":
+    case "unix_ns":
+      return dayjs(timestamp, "x").toDate();
+    case "iso8601":
+      return dayjs(timestamp).toDate();
+    default:
+      if (!timezone) {
+        timezone = "UTC";
+      }
+      if (typeof timestamp !== "string") {
+        throw new Error("Unsupported type");
+      }
+      return dayjs.tz(timestamp, format, timezone).toDate();
+  }
 }

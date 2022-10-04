@@ -16,14 +16,17 @@ export class CSVReader {
       delimiter,
       comments: comment,
       skipEmptyLines: true,
-      step({ data }, _) {
-        records.push(data);
+      
+      // step: callback function to help parse large files by streaming. results are sent 
+      // to the step callback function row by row. 
+      step({ data }, _) { 
+        records.push(data.filter((value) => value != ""));
       },
     });
     this.records = records;
   }
 
-  read() {
+  read() { // this will be used to get the headers hence the shifting 
     const record = this.records.shift();
     if (!record) {
       throw EOFError;
