@@ -937,7 +937,6 @@ timestamp,type,name,status
     }
 
     let metric = await parser.parseLine(rows[rowIndex]!);
-    // expect(metric).to.be.null;
     rowIndex++;
 
     metric = await parser.parseLine(rows[rowIndex]!);
@@ -952,8 +951,6 @@ timestamp,type,name,status
     metric = await parser.parseLine(rows[rowIndex]!);
     expect(expectedFields[1]).to.deep.equal(metric?.fields);
     expect(expectedTags[1]).to.deep.equal(metric?.tags);
-    rowIndex++;
-    
 
   });
 
