@@ -31,8 +31,6 @@ class Metric {
   }
 }
 
-
-
 describe("CSVParser", () => {
   const date = "2020-04-13T18:09:12.451Z"
   beforeEach(async () => {
@@ -45,7 +43,7 @@ describe("CSVParser", () => {
     reset()
   })
 
-  it("Tests Basic CSV", async () => {
+  it("parses a basic CSV", async () => {
     const parser = new CSVParser({
       columnNames: ["first", "second", "third"],
       tagColumns: ["third"],
@@ -54,7 +52,7 @@ describe("CSVParser", () => {
     expect(metric).to.not.be.null;
   });
 
-  it("Tests HeaderConcatenation CSV", async () => {
+  it("parses a CSV with a headerRowCount", async () => {
     const parser = new CSVParser({
       headerRowCount: 2,
       measurementColumn: "3",
@@ -66,7 +64,42 @@ describe("CSVParser", () => {
     expect(metrics[0]?.name).to.be.eql("test_name");
   });
 
-  it("TestExample1", async () => {
+  it("parses a CSV with a headerRowCount and columnNames specified", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 1,
+      columnNames: ["first", "second", "third"],
+      measurementColumn: "third",
+    })
+
+    const testCSV = `line1,line2,line3
+    3.4,70,test_name`
+
+    const expectedFields = {
+      "first":  3.4,
+      "second": 70,
+    }
+
+    const metrics = await parser.parse(testCSV);
+    expect(metrics[0]?.name).to.be.eql('test_name');
+    expect(metrics[0]?.fields).to.be.eql(expectedFields);
+
+    const testCSVRows:any = ["line1,line2,line3\r\n", "3.4,70,test_name\r\n"];
+
+    const parser2 = new CSVParser({
+      headerRowCount: 1,
+      columnNames: ["first", "second", "third"],
+      measurementColumn: "third",
+    })
+
+    const metrics2 = await parser2.parse(testCSVRows[0]);
+    expect(metrics2).to.be.eql(metric);
+
+    const metrics3 = await parser2.parseLine(testCSVRows[1]);
+    expect(metrics3?.name).to.be.eql('test_name');
+    expect(metrics3?.fields).to.be.eql(expectedFields);
+  })
+
+  it("parses a non-annotated CSV", async () => {
     const parser = new CSVParser({
       headerRowCount: 1,
       timestampColumn: "time",
@@ -80,7 +113,7 @@ describe("CSVParser", () => {
     expect(metrics[0]?.name).to.be.eql("cpu");
   });
 
-  it("TestExample2", async () => {
+  it("parses a different non-annotated CSV", async () => {
     const parser = new CSVParser({
       metadataRows: 2,
       metadataSeparators: [":", "="],
@@ -101,7 +134,7 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     ]);
   });
 
-  it("skips comment", async () => {
+  it("allows specifying comments to skip", async () => {
     const parser = new CSVParser({
       headerRowCount: 0,
       comment: '#',
@@ -155,47 +188,9 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
       "col3": "test_name", 
     }
     expect(metrics2[0]?.fields).to.be.eql(expectedFields2);
-
   });
 
-  it("tests header override", async () => {
-    const parser = new CSVParser({
-      headerRowCount: 1,
-		  columnNames: ["first", "second", "third"],
-		  measurementColumn: "third",
-    })
-
-    const testCSV = `line1,line2,line3
-    3.4,70,test_name`
-
-    const expectedFields = {
-      "first":  3.4,
-		  "second": 70,
-    }
-
-    const metrics = await parser.parse(testCSV);
-    expect(metrics[0]?.name).to.be.eql('test_name');
-    expect(metrics[0]?.fields).to.be.eql(expectedFields);
-
-    const testCSVRows:any = ["line1,line2,line3\r\n", "3.4,70,test_name\r\n"];
-
-    const parser2 = new CSVParser({
-      headerRowCount: 1,
-		  columnNames: ["first", "second", "third"],
-		  measurementColumn: "third",
-    })
-
-    const metrics2 = await parser2.parse(testCSVRows[0]);
-    expect(metrics2).to.be.eql(metric);
-
-    const metrics3 = await parser2.parseLine(testCSVRows[1]);
-    expect(metrics3?.name).to.be.eql('test_name');
-    expect(metrics3?.fields).to.be.eql(expectedFields);
-
-
-  })
-
-  it("Tests quoted characters", async () => {
+  it("parses quoted numbers", async () => {
     const parser = new CSVParser({
       headerRowCount: 1,
 		  columnNames: ["first", "second", "third"],
@@ -209,7 +204,7 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     expect(metrics[0]?.fields["first"]).to.be.eql("3,4");
   })
 
-  it("Tests delimeters", async () => {
+  it("handles specified delimeters", async () => {
     const parser = new CSVParser({
       headerRowCount: 1, 
       delimiter: "%", 
@@ -222,10 +217,9 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
 
     const metrics = await parser.parse(testCSV);
     expect(metrics[0]?.fields["first"]).to.be.eql("3,4");
-
   })
 
-  it("Tests value conversion", async () => {
+  it("parses a CSV with types explicitly and implicitly defined identically", async () => {
     const parser = new CSVParser({
       headerRowCount: 0, 
       delimiter: ",", 
@@ -262,68 +256,7 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
 
   })
 
-  it("skips comments", async () => {
-    const parser = new CSVParser({
-      headerRowCount: 0, 
-      comment: "#", 
-      columnNames: ["first", "second", "third", "fourth"],
-      metricName: "test_value",
-    });
-
-    const testCSV = `#3.3,4,true,hello
-    4,9.9,true,name_this`;
-
-    const expectedFields = {
-      "first": 4, 
-      "second": 9.9, 
-      "third": true,
-      "fourth": "name_this"
-    }
-
-    const metrics = await parser.parse(testCSV);
-    expect(metrics[0]?.fields).to.be.eql(expectedFields);
-  })
-
-  it("trims space", async () => {
-    const parser = new CSVParser({
-      headerRowCount: 0, 
-      trimSpace: true,
-      columnNames: ["first", "second", "third", "fourth"],
-      metricName: "test_value",
-    })
-
-    const testCSV = ` 3.3, 4,    true,hello`;
-
-    const expectedFields = {
-      "first": 3.3, 
-      "second": 4,
-      "third": true,
-      "fourth": "hello"
-    };
-
-    const metrics = await parser.parse(testCSV);
-    expect(metrics[0]?.fields).to.be.eql(expectedFields);
-
-    const parser2 = new CSVParser({
-      headerRowCount: 2, 
-      trimSpace: true,
-    })
-
-    const testCSV2 = "   col  ,  col  ,col\n" +
-		"  1  ,  2  ,3\n" +
-		"  test  space  ,  80  ,test_name";
-
-    const metrics2 = await parser2.parse(testCSV2);
-
-    const expectedFields2 = {
-      "col1": "test  space", 
-      "col2": 80,
-      "col3": "test_name",
-    };
-    expect(metrics2[0]?.fields).to.be.eql(expectedFields2);
-  })
-
-  it("trim space delimited by space", async () => {
+  it("trims space delimited by space", async () => {
     const parser = new CSVParser({
       delimiter: " ",
       headerRowCount: 1,
@@ -408,7 +341,7 @@ hello,80,test_name2`;
 
   })
 
-  it("skips columns with header", async () => {
+  it("skips columns with headers specified", async () => {
     const parser = new CSVParser({
       skipColumns: 1, 
       headerRowCount: 2,
@@ -427,6 +360,114 @@ trash,80,test_name`;
     expect(expectedRecordFields).to.be.eql(metrics[0]?.fields);
 
   })
+
+  it("skips measurement columns", async () => {
+    const parser = new CSVParser({
+      metricName: "csv",
+      headerRowCount: 1,
+      timestampColumn: "timestamp",
+      timestampFormat: "unix",
+      trimSpace: true,
+    });
+
+    const file = `id,value,timestamp
+    1,5,1551129661.954561233`;
+    const metrics = await parser.parse(file);
+    const expected: Metric = {
+      name: "csv",
+      fields: { id: 1, value: 5 },
+      time: dayjs.unix(1551129661.954561233).toDate(),
+      tags: {},
+    };
+
+    expect(metrics[0]).to.deep.equal(expected);
+
+
+  });
+
+  it("skips empty string values", async () => {
+    const parser = new CSVParser({
+      metricName: "csv",
+      headerRowCount: 1,
+      columnNames: ["a", "b"],
+      skipValues: [""]
+    });
+
+    const testCSV = `a,b
+1,""`;
+
+    const metrics = await parser.parse(testCSV);
+
+    const expected = {
+      name: "csv",
+      tags: {},
+      fields: {
+        "a": 1,
+      },
+      time: date
+    }
+    expect(expected.name).to.be.eql(metrics[0]?.name);
+    expect(expected.tags).to.be.eql(metrics[0]?.tags);
+    expect(expected.fields).to.be.eql(metrics[0]?.fields);
+    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
+
+  });
+
+  it("skips specified string value", async () => {
+    const parser = new CSVParser({
+      metricName: "csv",
+      headerRowCount: 1,
+      columnNames: ["a", "b"],
+      skipValues: ["MM"]
+    });
+
+    const testCSV = `a,b
+1,MM`;
+
+    const metrics = await parser.parse(testCSV);
+
+    const expected = {
+      name: "csv",
+      tags: {},
+      fields: {
+        "a": 1,
+      },
+      time: date
+    }
+    expect(expected.name).to.be.eql(metrics[0]?.name);
+    expect(expected.tags).to.be.eql(metrics[0]?.tags);
+    expect(expected.fields).to.be.eql(metrics[0]?.fields);
+    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
+
+  });
+
+  it("skips error on corrupted CSV line", async () => {
+    const parser = new CSVParser({
+      headerRowCount: 1,
+      timestampColumn: "date",
+      measurementColumn: "third",
+      timestampFormat: "DD/MM/YY hh:mm:ss A",
+      skipErrors: true,
+    });
+
+    const testCSV = `date,a,b
+23/05/09 11:05:06 PM,1,2
+corrupted_line
+07/11/09 04:06:07 PM,3,4`;
+
+    const expectedfields0 = {
+      "a": 1,
+      "b": 2,
+    }
+
+    const expectedfields1 = {
+      "a": 3,
+      "b": 4,
+    }
+    const metrics = await parser.parse(testCSV);
+  expect(metrics[0]?.fields).to.deep.equal(expectedfields0);
+  expect(metrics[1]?.fields).to.deep.equal(expectedfields1);
+  });
 
   it("can parse with multi header config", async () => {
     const parser = new CSVParser({
@@ -494,7 +535,7 @@ trash,80,test_name`;
 
   })
 
-  it("throws multi metric error message", async () => {
+  it("throws an error when parseLine returns more than one line", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -518,7 +559,7 @@ trash,80,test_name`;
 
   })
 
-  it("testing time stamp unix float precision", async () => {
+  it("handles timestamps with unix float precision", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       columnNames: ["time", "value"],
@@ -539,31 +580,7 @@ trash,80,test_name`;
     
   });
 
-  it("skips measurement column", async () => {
-    const parser = new CSVParser({
-      metricName: "csv", 
-      headerRowCount: 1,
-      timestampColumn: "timestamp",
-      timestampFormat: "unix",
-      trimSpace: true,
-    });
-
-    const file = `id,value,timestamp
-		1,5,1551129661.954561233`;
-    const metrics = await parser.parse(file);
-    const expected: Metric = {
-      name: "csv",
-      fields: { id: 1, value: 5 },
-      time: dayjs.unix(1551129661.954561233).toDate(),
-      tags: {},
-    };
-
-    expect(metrics[0]).to.deep.equal(expected);
-
-
-  });
-
-  it("time stamp time zone ", async () => {
+  it("handles timestamps with time zones", async () => {
       const parser = new CSVParser({
         headerRowCount: 1,
         columnNames: ["first", "second", "third"],
@@ -610,7 +627,7 @@ trash,80,test_name`;
 
   });
 
-  it("handles numeric measurement name", async () => {
+  it("handles numeric measurement names specified by measurementColumn", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -639,7 +656,7 @@ trash,80,test_name`;
 
   });
 
-  it("can handle static measurement name", async () => {
+  it("handles static measurement names with no measurementColumn specified", async () => {
     const parser = new CSVParser({
       metricName: "csv", 
       headerRowCount: 1,
@@ -667,91 +684,8 @@ trash,80,test_name`;
 
   });
 
-  it("skips empty string value", async () => {
-    const parser = new CSVParser({
-      metricName: "csv", 
-      headerRowCount: 1,
-      columnNames: ["a", "b"],
-      skipValues: [""]
-    });
 
-    const testCSV = `a,b
-1,""`;
-
-    const metrics = await parser.parse(testCSV);
-   
-    const expected = {
-      name: "csv",
-      tags: {},
-      fields: {
-        "a": 1,
-      },
-      time: date
-    }
-    expect(expected.name).to.be.eql(metrics[0]?.name);
-    expect(expected.tags).to.be.eql(metrics[0]?.tags);
-    expect(expected.fields).to.be.eql(metrics[0]?.fields);
-    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
-
-  });
-
-  it("skips specified string value", async () => {
-    const parser = new CSVParser({
-      metricName: "csv", 
-      headerRowCount: 1,
-      columnNames: ["a", "b"],
-      skipValues: ["MM"]
-    });
-
-    const testCSV = `a,b
-1,MM`;
-
-    const metrics = await parser.parse(testCSV);
-   
-    const expected = {
-      name: "csv",
-      tags: {},
-      fields: {
-        "a": 1,
-      },
-      time: date
-    }
-    expect(expected.name).to.be.eql(metrics[0]?.name);
-    expect(expected.tags).to.be.eql(metrics[0]?.tags);
-    expect(expected.fields).to.be.eql(metrics[0]?.fields);
-    expect(JSON.stringify(expected.time)).to.be.eql(JSON.stringify(metrics[0]?.time));
-
-  });
-
-  it("skips error on corrupted CSV line", async () => {
-    const parser = new CSVParser({
-      headerRowCount: 1,
-      timestampColumn: "date",
-      measurementColumn: "third",
-      timestampFormat: "DD/MM/YY hh:mm:ss A",
-      skipErrors: true,
-    });
-
-    const testCSV = `date,a,b
-23/05/09 11:05:06 PM,1,2
-corrupted_line
-07/11/09 04:06:07 PM,3,4`;
-
-    const expectedfields0 = {
-      "a": 1,
-      "b": 2,
-    }
-
-    const expectedfields1 = {
-      "a": 3,
-      "b": 4,
-    }
-    const metrics = await parser.parse(testCSV);
-  expect(metrics[0]?.fields).to.deep.equal(expectedfields0);
-  expect(metrics[1]?.fields).to.deep.equal(expectedfields1);
-  });
-
-  it("can parse with metadata separators", async () => { 
+  it("parses with metadata separators", async () => {
     let parser
 
     expect(() => { 
@@ -794,7 +728,7 @@ corrupted_line
     expect(parser4.metadataSeparatorList).deep.equal([":=", ",", ":", "="]);
   });
 
-  it("can parse metadata row", async () => {
+  it("parses metadata rows", async () => {
     const parser = new CSVParser({
       columnNames: ["a", "b"],
       metadataRows: 5, 
@@ -843,7 +777,7 @@ corrupted_line
 
   });
 
-  it("parses CSV file with metadata", async () => {
+  it("parses CSV files with metadata", async () => {
     const parser = new CSVParser({
       headerRowCount: 1, 
       skipRows: 2, 
@@ -954,7 +888,7 @@ timestamp,type,name,status
 
   });
 
-  it("overwrte default tags and metadata tags", async () => {
+  it("overwrtes default tags and metadata tags", async () => {
     const parser = new CSVParser({
       columnNames: ["first", "second", "third"],
       tagColumns: ["second", "third"],
@@ -985,7 +919,7 @@ timestamp,type,name,status
     expect(metrics?.fields).to.deep.equal(expectedFields[0]);
   });
 
-  it("can handle csv with invalid reset mode", async () => {
+  it("throws an error on CSVs with invalid reset modes", async () => {
 
     expect(() => new CSVParser({
       headerRowCount: 1,
@@ -993,7 +927,7 @@ timestamp,type,name,status
     })).to.throw(Error, `expected "none" or "always" but got unknown reset mode garbage`)
   });
 
-  it("can handle parsing csv with rest mode none", async () => {
+  it("parses string CSVs with reset mode set to 'none'", async () => {
 
     const testCSV = `garbage nonsense that needs be skipped
 
@@ -1092,7 +1026,7 @@ timestamp,type,name,status
     expect(JSON.stringify(metrics2[0]?.time)).to.deep.equal(JSON.stringify(additionalExpected[0]?.time))
   });
 
-  it("parsing csv with rest mode none", async () => { 
+  it("parses array CSVs with reset mode set to 'none'", async () => {
 
     const testCSV: any = ["garbage nonsense that needs be skipped", 
       "", 
@@ -1207,7 +1141,7 @@ timestamp,type,name,status
 
   });
 
-  it("can parse csv with always resetmode", async () => {
+  it("parses string CSVs with reset mode set to 'always'", async () => {
     const testCSV = `garbage nonsense that needs be skipped
 
 # version= 1.0
@@ -1335,7 +1269,7 @@ timestamp,category,id,flag
     });
   });
 
-  it("can parse CSV line with always resetmode", async () => {
+  it("parses array CSVs with reset mode set to 'always'", async () => {
     const testCSV: any = ["garbage nonsense that needs be skipped",
 		"",
 		"# version= 1.0\r\n",
