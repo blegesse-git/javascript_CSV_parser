@@ -14,16 +14,16 @@ dayjs.extend(dayjsUTC);
 dayjs.extend(dayjsTimezone);
 
 interface Metric {
-  name: string;
+  name: any;
   tags: Record<string, any>;
-  time: Date;
+  time: any;
   fields: Record<string, any>;
 }
 
 const metric: Metric[] = [];
 
 class Metric {
-  constructor(name: string, tags: any, time: Date, fields: any) {
+  constructor(name: any, tags: any, time: any, fields: any) {
     this.name = name;
     this.tags = tags;
     this.time = time;
@@ -236,8 +236,8 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
       "fourth": "hello"
     }
     const metrics = await parser.parse(testCSV);
-    const expectedMetric = new Metric("test_value",{}, new Date(), expectedFields);
-    const returnedMetric = new Metric(metrics[0]?.name, metrics[0]?.tags, new Date(), metrics[0]?.fields)
+    const expectedMetric = new Metric("test_value",{}, date, expectedFields);
+    const returnedMetric = new Metric(metrics[0]?.name, metrics[0]?.tags, date, metrics[0]?.fields)
 
     expect(expectedMetric).deep.equal(returnedMetric);
 
@@ -251,7 +251,7 @@ cpu,cpu0,42,42,42,2018-09-13T13:03:28Z`;
     })
 
     const metrics2 = await parser2.parse(testCSV);
-    const returnedMetric2 = new Metric(metrics2[0]?.name, metrics2[0]?.tags, new Date(), metrics2[0]?.fields)
+    const returnedMetric2 = new Metric(metrics2[0]?.name, metrics2[0]?.tags, date, metrics2[0]?.fields)
     expect(expectedMetric.fields).deep.equal(returnedMetric2.fields);
 
   })
@@ -545,18 +545,33 @@ corrupted_line
     const csvOneRow = "1,2,3";
     const csvTwoRows = "4,5,6\n7,8,9";
 
+    const expected = [
+      {
+        name: "csv",
+        tags: {},
+        fields: {
+          "a": 1,
+          "b": 2,
+          "c": 3
+        },
+        time: date
+      }
+    ]
+
     const metrics = await parser.parse(csvHeader);
     expect(metrics.length).to.be.eql(0);
 
     const metrics2: any = await parser.parseLine(csvOneRow);
-    expect(Object.values(metrics2)).deep.equal(["csv", {}, {"a": 1, "b": 2, "c": 3}, new Date()])
+
+    expect(metrics2?.name).to.deep.equal(expected[0]?.name)
+    expect(metrics2?.fields).to.deep.equal(expected[0]?.fields)
+    expect(metrics2?.tags).to.deep.equal(expected[0]?.tags)
+    expect(JSON.stringify(metrics2?.time)).to.deep.equal(JSON.stringify(expected[0]?.time))
 
     await expect(parser.parseLine(csvTwoRows)).to.be.rejectedWith(Error, 'Expected 1 metric found 2')
 
     const metrics3 = await parser.parse(csvTwoRows);
     expect(metrics3.length).to.be.eql(2);
-
-
   })
 
   it("handles timestamps with unix float precision", async () => {
