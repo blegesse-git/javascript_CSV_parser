@@ -107,7 +107,7 @@ export class Config {
     this.timezone = timezone ?? "";
     this.trimSpace = trimSpace ?? false;
     this.skipValues = skipValues ?? [];
-    this.skipErrors = skipErrors ?? true;
+    this.skipErrors = skipErrors ?? false;
     this.metadataRows = metadataRows ?? 0;
     this.metadataSeparators = metadataSeparators ?? [];
     this.metadataTrimSet = metadataTrimSet ?? "";
