@@ -88,31 +88,31 @@ export class Config {
     metadataRows: number,
     metadataSeparators: string[],
     metadataTrimSet: string,
-    resetMode: 'none' | 'always',
+    resetMode: string,
     timeFunc: TimeFunc
   ) {
     this.columnNames = columnNames ?? [];
-    this.columnTypes = columnTypes;
-    this.comment = comment;
-    this.defaultTags = defaultTags;
-    this.delimiter = delimiter;
-    this.headerRowCount = headerRowCount;
-    this.measurementColumn = measurementColumn;
-    this.metricName = metricName;
-    this.skipColumns = skipColumns;
-    this.skipRows = skipRows;
-    this.tagColumns = tagColumns;
-    this.timestampColumn = timestampColumn;
-    this.timestampFormat = timestampFormat;
-    this.timezone = timezone;
-    this.trimSpace = trimSpace;
-    this.skipValues = skipValues;
-    this.skipErrors = skipErrors;
-    this.metadataRows = metadataRows;
-    this.metadataSeparators = metadataSeparators;
-    this.metadataTrimSet = metadataTrimSet;
+    this.columnTypes = columnTypes ?? [];
+    this.comment = comment ?? "";
+    this.defaultTags = defaultTags ?? {};
+    this.delimiter = delimiter ?? "";
+    this.headerRowCount = headerRowCount ?? 0;
+    this.measurementColumn = measurementColumn ?? "";
+    this.metricName = metricName ?? "";
+    this.skipColumns = skipColumns ?? 0;
+    this.skipRows = skipRows ?? 0;
+    this.tagColumns = tagColumns ?? [];
+    this.timestampColumn = timestampColumn ?? "";
+    this.timestampFormat = timestampFormat ?? "";
+    this.timezone = timezone ?? "";
+    this.trimSpace = trimSpace ?? false;
+    this.skipValues = skipValues ?? [];
+    this.skipErrors = skipErrors ?? true;
+    this.metadataRows = metadataRows ?? 0;
+    this.metadataSeparators = metadataSeparators ?? [];
+    this.metadataTrimSet = metadataTrimSet ?? "";
     this.resetMode = resetMode || 'none';
-    this.timeFunc = timeFunc;
+    this.timeFunc = timeFunc ?? (() => new Date());
 
     if (!this.headerRowCount && !this.columnNames.length) {
       throw new Error(
@@ -163,31 +163,30 @@ export class CSVParser {
   config: Config;
 
   // InitFromConfig
-  // Move these fallback configuration values into the Config constructor then REMOVE THIS COMMENT
   constructor(config?: Partial<ParserConfig>) {
     this.config = new Config(
-      config?.columnNames,
-      config?.columnTypes ?? [],
-      config?.comment ?? "",
-      config?.defaultTags ?? {},
-      config?.delimiter ?? "",
-      config?.headerRowCount ?? 0,
-      config?.measurementColumn ?? "",
-      config?.metricName ?? "",
-      config?.skipColumns ?? 0,
-      config?.skipRows ?? 0,
-      config?.tagColumns ?? [],
-      config?.timestampColumn ?? "",
-      config?.timestampFormat ?? "",
-      config?.timezone ?? "",
-      config?.trimSpace ?? false,
-      config?.skipValues ?? [],
-      config?.skipErrors ?? true,
-      config?.metadataRows ?? 0,
-      config?.metadataSeparators ?? [],
-      config?.metadataTrimSet ?? "",
-      config?.resetMode,
-      config?.timeFunc ?? (() => new Date())
+      config?.columnNames!,
+      config?.columnTypes!,
+      config?.comment!,
+      config?.defaultTags!,
+      config?.delimiter!,
+      config?.headerRowCount!,  
+      config?.measurementColumn!,
+      config?.metricName!,
+      config?.skipColumns!,  
+      config?.skipRows!,
+      config?.tagColumns!,
+      config?.timestampColumn!,
+      config?.timestampFormat!,
+      config?.timezone!,
+      config?.trimSpace!,
+      config?.skipValues!,
+      config?.skipErrors!,
+      config?.metadataRows!,  
+      config?.metadataSeparators!,
+      config?.metadataTrimSet!,
+      config?.resetMode!,
+      config?.timeFunc!
     )
 
     this.gotInitialColumnNames = !!this.config.columnNames.length;
