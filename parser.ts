@@ -244,19 +244,6 @@ export class CSVParser {
     this.config.defaultTags = tags;
   }
 
-  setTimeFunc(fn: TimeFunc) {
-    this.timeFunc = fn;
-  }
-
-  private compile(file: LocalFile) {
-    return new CSVReader({
-      file,
-      delimiter: this.config.delimiter,
-      comment: this.config.comment,
-      trimSpace: this.config.trimSpace,
-    });
-  }
-
   private initializeMetadataSeparator() {
     if (this.config.metadataRows <= 0) return;
 
@@ -301,8 +288,13 @@ export class CSVParser {
       }
     }
 
-    // CODE REVIEW STOPPED HERE, CONTINUE FROM THIS POINT
-    const csvReader = this.compile(localFile);
+    const csvReader = new CSVReader({
+      file: localFile,
+      delimiter: this.config.delimiter,
+      comment: this.config.comment,
+      trimSpace: this.config.trimSpace,
+    })
+
     // If there is a header, and we did not get DataColumns
     // set DataColumns to names extracted from the header
     // we always reread the header to avoid side effects
@@ -318,11 +310,11 @@ export class CSVParser {
 
       // Concatenate header names
       for (let [i, header] of headers.entries()) {
-        const name = this.config.trimSpace ? this.trim(header, " ") : header;
+        const name = this.config.trimSpace ? header.trim() : header;
         if (this.config.columnNames.length <= i) {
           this.config.columnNames.push(name);
         } else {
-          this.config.columnNames[i] = this.config.columnNames[i] + name;
+          this.config.columnNames[i] = `${this.config.columnNames[i]}${name}`;
         }
       }
     }
@@ -370,33 +362,37 @@ export class CSVParser {
     return {};
   }
 
+  // todo: think about if renaming this to indicate it returns a single point of line protocol data
   private parseRecord(record: string[]): Metric {
     const recordFields: Record<string, any> = {};
     const tags: Record<string, string> = {};
 
     // Skip columns in record
-    record = record.slice(this.config.skipColumns);
-    outer: for (const [i, fieldName] of this.config.columnNames.entries()) {
-      if (i < record.length) {
-        const value = this.config.trimSpace ? this.trim(record[i]!, " ") : record[i]!;
+    const slicedRecord = record.slice(this.config.skipColumns);
 
-        // Don't record fields where the value matches a skip value
+    // See JavaScript labels https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/label
+    outer:
+    for (const [i, fieldName] of this.config.columnNames.entries()) {
+      if (i < slicedRecord.length) {
+        const trimmedRecord = this.config.trimSpace ? slicedRecord[i]!.trim() : slicedRecord[i]!;
+
+        // Don't record fields where the trimmedRecord matches a skip value
         for (const skipValue of this.config.skipValues) {
-          if (value === skipValue) {
+          if (trimmedRecord === skipValue) {
             continue outer;
           }
         }
 
         for (const tagName of this.config.tagColumns) {
           if (tagName === fieldName) {
-            tags[tagName] = value;
+            tags[tagName] = trimmedRecord;
             continue outer;
           }
         }
 
         // If the field name is the timestamp column, then keep field name as is.
-        if (fieldName == this.config.timestampColumn) {
-          recordFields[fieldName] = value;
+        if (fieldName === this.config.timestampColumn) {
+          recordFields[fieldName] = trimmedRecord;
           continue;
         }
 
@@ -410,25 +406,25 @@ export class CSVParser {
           let val: any;
           switch (this.config.columnTypes[i]) {
             case "int":
-              val = Number(value);
+              val = parseInt(trimmedRecord, 10);
               if (isNaN(val)) {
                 throw new Error("Column type: Column is not an integer");
               }
               break;
             case "float":
-              val = parseFloat(value);
+              val = parseFloat(trimmedRecord);
               if (isNaN(val)) {
                 throw new Error("Column type: Column is not a float");
               }
               break;
             case "bool":
-              val = parseBool(value);
+              val = parseBool(trimmedRecord);
               if (val === undefined) {
                 throw new Error("Column type: Column is not a boolean");
               }
               break;
             default:
-              val = value;
+              val = trimmedRecord;
           }
 
           recordFields[fieldName] = val;
@@ -436,8 +432,8 @@ export class CSVParser {
         }
 
         // Attempt type conversions
-        const iValue = Number(value); // Use this to make timestamp parsing to turn to Nan
-        const bValue = parseBool(value);
+        const iValue = Number(trimmedRecord); // Use this to make timestamp parsing to turn to Nan
+        const bValue = parseBool(trimmedRecord);
 
         if (!isNaN(iValue) ) {
           recordFields[fieldName] = iValue;
@@ -445,30 +441,29 @@ export class CSVParser {
         else if (bValue !== undefined) {
           recordFields[fieldName] = bValue;
         } else {
-          recordFields[fieldName] = value;
+          recordFields[fieldName] = trimmedRecord;
         }
       }
     }
 
     // Add metadata tags
-    for (const k in this.metadataTags) {
-      tags[k] = this.metadataTags[k]!;
+    for (const key in this.metadataTags) {
+      tags[key] = this.metadataTags[key]!;
     }
 
     // Add default tags
-    for (const k in this.config.defaultTags) {
-      tags[k] = this.config.defaultTags[k]!;
+    for (const key in this.config.defaultTags) {
+      tags[key] = this.config.defaultTags[key]!;
     }
 
     // Will default to plugin name
     const measurementValue = recordFields[this.config.measurementColumn];
     const doesExist =
       this.config.measurementColumn &&
-      measurementValue != undefined &&
-      measurementValue != "";
+      measurementValue !== undefined &&
+      measurementValue !== "";
     const measurementName = doesExist
-      ? `${measurementValue}` : this.config.metricName;
-
+      ? measurementValue.toString() : this.config.metricName;
 
       const metricTime = parseTimestamp({
         timeFunc: this.timeFunc,
@@ -562,7 +557,7 @@ function parseTimestamp({
       case "":
         throw new Error("Timestamp format must be specified");
       default:
-        return ParseTimestamp(
+        return formatTimestamp(
           recordFields[timestampColumn],
           timestampFormat,
           timezone
@@ -573,7 +568,7 @@ function parseTimestamp({
   return timeFunc();
 }
 
-export function ParseTimestamp(
+export function formatTimestamp(
   timestamp: any,
   format: string,
   timezone: string
@@ -592,7 +587,7 @@ export function ParseTimestamp(
         timezone = "UTC";
       }
       if (typeof timestamp !== "string") {
-        throw new Error("Unsupported type");
+        throw new Error("Unsupported timestamp type");
       }
       return dayjs.tz(timestamp, format, timezone).toDate();
   }
