@@ -996,7 +996,7 @@ timestamp,type,name,status
     })).to.throw(Error, `expected "none" or "always" but got unknown reset mode garbage`)
   });
 
-  it("can handle parsing csv with rest mode none", async () => { // 1 error
+  it("can handle parsing csv with rest mode none", async () => {
 
     const testCSV = `garbage nonsense that needs be skipped
 
@@ -1059,15 +1059,13 @@ timestamp,type,name,status
 
     const metrics = await parser.parse(testCSV);
 
-    expect(metrics[0]?.name).to.deep.equal(expected[0]?.name)
-    expect(metrics[0]?.fields).to.deep.equal(expected[0]?.fields)
-    expect(metrics[0]?.tags).to.deep.equal(expected[0]?.tags)
-    expect(JSON.stringify(metrics[0]?.time)).to.deep.equal(JSON.stringify(expected[0]?.time))
-    
-    expect(metrics[1]?.name).to.deep.equal(expected[1]?.name)
-    expect(metrics[1]?.fields).to.deep.equal(expected[1]?.fields)
-    expect(metrics[1]?.tags).to.deep.equal(expected[1]?.tags)
-    expect(JSON.stringify(metrics[1]?.time)).to.deep.equal(JSON.stringify(expected[1]?.time))
+    metrics.forEach((metric, i) => {
+      expect(metric.name).to.deep.equal(expected[i]?.name)
+      expect(metric.fields).to.deep.equal(expected[i]?.fields)
+      expect(metric.tags).to.deep.equal(expected[i]?.tags)
+      expect(JSON.stringify(metric.time)).to.deep.equal(JSON.stringify(expected[i]?.time))
+
+    });
 
     // Parsing another data line should work when not resetting
     const additionalCSV = "2021-12-01T19:01:00+00:00,Reader,R009,5\r\n";
@@ -1095,11 +1093,6 @@ timestamp,type,name,status
     expect(metrics2[0]?.fields).to.deep.equal(additionalExpected[0]?.fields)
     expect(metrics2[0]?.tags).to.deep.equal(additionalExpected[0]?.tags)
     expect(JSON.stringify(metrics2[0]?.time)).to.deep.equal(JSON.stringify(additionalExpected[0]?.time))
-
-    // This should fail when not resetting but reading again due to the header etc
-    // expect(await parser.parse(testCSV)).to.be.rejectedWith(Error)
-    // console.log("metric again", await parser.parse(testCSV))
-    // await expect(parser.parse(testCSV)).to.be.rejectedWith(Error)
   });
 
   it("parsing csv with rest mode none", async () => { 
@@ -1277,15 +1270,13 @@ timestamp,type,name,status
 
     const metrics = await parser.parse(testCSV);
 
-    expect(metrics[0]?.name).to.deep.equal(expected[0]?.name)
-    expect(metrics[0]?.fields).to.deep.equal(expected[0]?.fields)
-    expect(metrics[0]?.tags).to.deep.equal(expected[0]?.tags)
-    expect(JSON.stringify(metrics[0]?.time)).to.deep.equal(JSON.stringify(expected[0]?.time))
+    metrics.forEach((metric, i) => {
+      expect(metric.name).to.deep.equal(expected[i]?.name)
+      expect(metric.fields).to.deep.equal(expected[i]?.fields)
+      expect(metric.tags).to.deep.equal(expected[i]?.tags)
+      expect(JSON.stringify(metric.time)).to.deep.equal(JSON.stringify(expected[i]?.time))
 
-    expect(metrics[1]?.name).to.deep.equal(expected[1]?.name)
-    expect(metrics[1]?.fields).to.deep.equal(expected[1]?.fields)
-    expect(metrics[1]?.tags).to.deep.equal(expected[1]?.tags)
-    expect(JSON.stringify(metrics[1]?.time)).to.deep.equal(JSON.stringify(expected[1]?.time))
+    });
 
     // Parsing another data line should fail as it is interpreted as header
     const additionalCSV = "2021-12-01T19:01:00+00:00,Reader,R009,5\r\n";
@@ -1338,15 +1329,13 @@ timestamp,category,id,flag
     const metrics2 = await parser.parse(testCSV2);
     expect(() => metrics2).to.not.throw(Error);
 
-    expect(metrics2[0]?.name).to.deep.equal(expected2[0]?.name)
-    expect(metrics2[0]?.fields).to.deep.equal(expected2[0]?.fields)
-    expect(metrics2[0]?.tags).to.deep.equal(expected2[0]?.tags)
-    expect(JSON.stringify(metrics2[0]?.time)).to.deep.equal(JSON.stringify(expected2[0]?.time))
+    metrics2.forEach((metric, i) => {
+      expect(metric.name).to.deep.equal(expected2[i]?.name)
+      expect(metric.fields).to.deep.equal(expected2[i]?.fields)
+      expect(metric.tags).to.deep.equal(expected2[i]?.tags)
+      expect(JSON.stringify(metric.time)).to.deep.equal(JSON.stringify(expected2[i]?.time))
 
-    expect(metrics2[1]?.name).to.deep.equal(expected2[1]?.name)
-    expect(metrics2[1]?.fields).to.deep.equal(expected2[1]?.fields)
-    expect(metrics2[1]?.tags).to.deep.equal(expected2[1]?.tags)
-    expect(JSON.stringify(metrics2[1]?.time)).to.deep.equal(JSON.stringify(expected2[1]?.time))
+    });
   });
 
   it("can parse CSV line with always resetmode", async () => {
@@ -1407,7 +1396,7 @@ timestamp,category,id,flag
 
     parser.setDefaultTags({"test": "tag"});
 
-    const metrics = [];
+    let metrics = [];
 
     for (const [i, line] of testCSV.entries()) {
       
