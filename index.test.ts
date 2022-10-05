@@ -113,7 +113,7 @@ describe("CSVParser", () => {
     expect(metrics[0]?.name).to.be.eql("cpu");
   });
 
-  it("parses a different non-annotated CSV", async () => {
+  it("parses an annotated CSV", async () => {
     const parser = new CSVParser({
       metadataRows: 2,
       metadataSeparators: [":", "="],
