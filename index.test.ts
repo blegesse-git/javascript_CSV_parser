@@ -631,7 +631,7 @@ trash,80,test_name`;
       },
       time: date
     };
-    
+
     expect(expected.name).to.be.eql(metrics[0]?.name);
     expect(expected.tags).to.be.eql(metrics[0]?.tags);
     expect(expected.fields).to.be.eql(metrics[0]?.fields);
@@ -1102,7 +1102,7 @@ timestamp,type,name,status
     // await expect(parser.parse(testCSV)).to.be.rejectedWith(Error)
   });
 
-  it("parsing csv with rest mode none", async () => { // TODO: timestamp test failure and more
+  it("parsing csv with rest mode none", async () => { 
 
     const testCSV: any = ["garbage nonsense that needs be skipped", 
       "", 
@@ -1125,11 +1125,11 @@ timestamp,type,name,status
           "file created": "2021-10-08T12:34:18+10:00",
           "test": "tag",
         },
-        recordFields: {
+        fields: {
           "name": "R002",
 				  "status": 1,
         },
-        time: new Date()
+        time: "2020-11-23T08:19:27.000Z"
       },
       {
         name: "",
@@ -1139,11 +1139,11 @@ timestamp,type,name,status
           "file created": "2021-10-08T12:34:18+10:00",
           "test": "tag",
         },
-        recordFields: {
+        fields: {
           "name": "C001",
 				  "status": 0,
         },
-        time: new Date()
+        time: "2020-11-04T13:29:47.000Z"
       }
     ];
 
@@ -1156,70 +1156,65 @@ timestamp,type,name,status
       metadataSeparators: [":", "="],
       metadataTrimSet: " #",
       timestampColumn: "timestamp",
-      timestampFormat: "2006-01-02T15:04:05Z07:00",
+      timestampFormat: "iso8601",
       resetMode: "none",
     });
     expect(() => parser).to.not.throw(Error);
 
     // Set default Tags
     parser.setDefaultTags({"test": "tag"});
-    // console.log('csvParser:', parser);
 
     const metrics = [];
-    // console.log('skipRows + meta', testCSV[9])
-    
-    // console.log('metric', await parser.parseLine("2020-11-04T13:29:47+00:00,Coordinator,C001,0"));
 
-    // for (const [i, line] of testCSV.entries()) {
-    //   // console.log(line)
+    for (const [i, line] of testCSV.entries()) {
       
-    //   // Header lines should return "not enough data"
-      
-    //   if (i < parser.config.skipRows + parser.config.metadataRows) {
-    //     console.log('inside', i)
-    //     // console.log('inside', line)
-    //     if(i === 4){
-          
-    //        expect(async()=>await parser.parseLine(line)).to.be.null;
-    //     }
-    //     await expect(parser.parseLine(line)).to.be.rejectedWith(Error)
-        
+      try {
+        let metric = await parser.parseLine(line)
+        if (metric !== null) {
 
-    //     continue;
-    //   }else {
+          metrics.push(metric);
+        }
+      } catch (error) {
+        if (i < parser.config.skipRows + parser.config.metadataRows) {
+          expect(error).to.be.deep.equal(EOFError);
+        }
+      }
+    };
 
-    //     const metric = await parser.parseLine(line);
-    //     if (metric) {
-    //       metrics.push(metric)
-    //     }
-    //   }
-    // }
+    metrics.forEach((metric, i) => {
+      expect(metric.name).to.deep.equal(expected[i]?.name)
+      expect(metric.fields).to.deep.equal(expected[i]?.fields)
+      expect(metric.tags).to.deep.equal(expected[i]?.tags)
+      expect(JSON.stringify(metric.time)).to.deep.equal(JSON.stringify(expected[i]?.time))
+    })
 
     // Parsing another data line should work when not resetting
-    // const additionalCSV = "2021-12-01T19:01:00+00:00,Reader,R009,5\r\n";
-    // const additionalExpected = [
-    //   {
-    //     name: "",
-    //     tags: {
-    //       "type": "Reader",
-    //       "version": "1.0",
-    //       "file created": "2021-10-08T12:34:18+10:00",
-    //       "test": "tag",
-    //     },
-    //     recordFields: {
-    //       "name": "R009",
-		// 		  "status": 5,
-    //     },
-    //     time: "2021-12-01T19:01:00+00:00"
-    //   }
-    // ];
+    const additionalCSV = "2021-12-01T19:01:00+00:00,Reader,R009,5\r\n";
+    const additionalExpected = [
+      {
+        name: "",
+        tags: {
+          "type": "Reader",
+          "version": "1.0",
+          "file created": "2021-10-08T12:34:18+10:00",
+          "test": "tag",
+        },
+        fields: {
+          "name": "R009",
+				  "status": 5,
+        },
+        time: "2021-12-01T19:01:00.000Z"
+      }
+    ];
 
-    // const metrics2 = await parser.parse(additionalCSV);
-    // expect(() => metrics2).to.not.throw(Error);
-    // expect(metrics2[0]).to.deep.equal(additionalExpected[0])
+    const metrics2 = await parser.parseLine(additionalCSV);
+    expect(() => metrics2).to.not.throw(Error);
 
-    // This should fail when not resetting but reading again due to the header etc
-    // console.log('error?', await parser.parse(testCSV))
+    expect(metrics2?.name).to.deep.equal(additionalExpected[0]?.name)
+    expect(metrics2?.fields).to.deep.equal(additionalExpected[0]?.fields)
+    expect(metrics2?.tags).to.deep.equal(additionalExpected[0]?.tags)
+    expect(JSON.stringify(metrics2?.time)).to.deep.equal(JSON.stringify(additionalExpected[0]?.time))
+
   });
 
   it("can parse csv with always resetmode", async () => {
