@@ -1349,7 +1349,7 @@ timestamp,category,id,flag
     expect(JSON.stringify(metrics2[1]?.time)).to.deep.equal(JSON.stringify(expected2[1]?.time))
   });
 
-  it("can parse CSV line with always resetmode", async () => { // TODO: csv row failure
+  it("can parse CSV line with always resetmode", async () => {
     const testCSV: any = ["garbage nonsense that needs be skipped",
 		"",
 		"# version= 1.0\r\n",
@@ -1374,7 +1374,7 @@ timestamp,category,id,flag
           "name": "R002",
           "status": 1
         },
-        time: "2021-12-01T19:01:00+00:00"
+        time: "2020-11-23T08:19:27.000Z"
       },
       {
         name: "",
@@ -1388,7 +1388,7 @@ timestamp,category,id,flag
           "name": "C001",
           "status": 0
         },
-        time: "2021-12-01T19:01:00+00:00"
+        time: "2020-11-04T13:29:47.000Z"
       }
     ];
 
@@ -1401,42 +1401,34 @@ timestamp,category,id,flag
       metadataSeparators: [":", "="],
       metadataTrimSet: " #",
       timestampColumn: "timestamp",
-      timestampFormat: "2006-01-02T15:04:05Z07:00",
+      timestampFormat: "iso8601",
       resetMode: "always",
     });
 
     parser.setDefaultTags({"test": "tag"});
 
-    
-    // parseLine using a for loop
-
-    // const metrics = await parser.parseLine(testCSV[9]);
-    //   console.log(metrics);
-
     const metrics = [];
-    // for (let [i, metric] of testCSV.entries()) {
+
+    for (const [i, line] of testCSV.entries()) {
       
-    //   if(i < parser.config.skipRows + parser.config.metadataRows) {
-    //     if(i === 4) {
-    //       await expect(parser.parseLine(metric)).to.eventually.be.fulfilled.and.equal(null);
-    //       continue;
+      try {
+        let metric = await parser.parseLine(line)
+        if (metric !== null) {
+          metrics.push(metric);
+        }
+      } catch (error) {
+        if (i < parser.config.skipRows + parser.config.metadataRows) {
+          expect(error).to.be.deep.equal(EOFError);
+        }
+      }
+    };
 
-    //     }else {
-
-    //       console.log('inside i ', i)
-    //       await expect(parser.parseLine(metric)).to.be.rejectedWith(Error, 'EOF');
-    //       continue;
-    //     }
-    //   }
-    //   let m = await parser.parseLine(metric);
-
-    //   if(m) {
-    //     metrics.push(m)
-    //   }
-
-
-    // }
-    // console.log('m is...', metrics)
+    metrics.forEach((metric, i) => {
+      expect(metric.name).to.deep.equal(expected[i]?.name)
+      expect(metric.fields).to.deep.equal(expected[i]?.fields)
+      expect(metric.tags).to.deep.equal(expected[i]?.tags)
+      expect(JSON.stringify(metric.time)).to.deep.equal(JSON.stringify(expected[i]?.time))
+    })
 
 
     // Parsing another data line should work in line-wise parsing as
@@ -1456,15 +1448,18 @@ timestamp,category,id,flag
           "name": "R009",
           "status": 5
         },
-        time: "2021-12-01T19:01:00+00:00"
+        time: "2021-12-01T19:01:00.000Z"
       }
     ];
 
-    // const metrics2 = await parser.parseLine(additionalCSV);
-    // expect additionalCSV to deep equal to metrics2
-    // This should fail as reset-mode "always" is ignored in line-wise parsing
+    const metrics2 = await parser.parseLine(additionalCSV);
 
+    expect(() => metrics2).to.not.throw(Error);
 
+    expect(metrics2?.name).to.deep.equal(additionalExpected[0]?.name)
+    expect(metrics2?.fields).to.deep.equal(additionalExpected[0]?.fields)
+    expect(metrics2?.tags).to.deep.equal(additionalExpected[0]?.tags)
+    expect(JSON.stringify(metrics2?.time)).to.deep.equal(JSON.stringify(additionalExpected[0]?.time))
     
   });
 })
